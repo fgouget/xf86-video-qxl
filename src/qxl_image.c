@@ -202,7 +202,7 @@ qxl_image_create (qxl_screen_t *qxl, const uint8_t *data,
 	}
 	else if (Bpp == 1)
 	{
-	    image->bitmap.format = SPICE_BITMAP_FMT_8BIT;
+	    image->bitmap.format = SPICE_BITMAP_FMT_8BIT_A;
 	}
 	else if (Bpp == 4)
 	{

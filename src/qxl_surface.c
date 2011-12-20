@@ -706,6 +706,7 @@ qxl_surface_create (surface_cache_t *    cache,
 	return NULL;
     }
 
+#if 0
     if (bpp == 8)
       {
 	static int warned;
@@ -717,6 +718,7 @@ qxl_surface_create (surface_cache_t *    cache,
 	
 	return NULL;
       }
+#endif
     
     if (bpp != 8 && bpp != 16 && bpp != 32 && bpp != 24)
     {
