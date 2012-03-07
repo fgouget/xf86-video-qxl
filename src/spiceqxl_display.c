@@ -67,8 +67,8 @@
 
 
 /* XSpice:
- * We only need a single identify slot, no need to change it for the lifetime
- * We actually need no slots, but less changes if we leave one.
+ * We only need a single static identity slot.
+ * We actually need no slots, but less changes if we use one.
  * We currently add it during attache_worker - should not be called more
  * then once during lifetime (but we don't check)
  */
