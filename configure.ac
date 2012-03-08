@@ -107,11 +107,14 @@ AM_CONDITIONAL(BUILD_QXL, test "x$enable_qxl" = "xyes")
 
 PKG_CHECK_MODULES([SPICE_PROTOCOL], [spice-protocol >= 0.8.1])
 
-AC_CHECK_FILE(.git, [
-    GIT_VERSION=`git log -1 --format=%h`
-    AC_DEFINE_UNQUOTED([GIT_VERSION], ["$GIT_VERSION"], [Defined if building from git])
-    ]
-)
+# AC_CHECK_FILE is not supported when cross compiling
+if test "$cross_compiling" = "no" ; then
+    AC_CHECK_FILE(.git, [
+        GIT_VERSION=`git log -1 --format=%h`
+        AC_DEFINE_UNQUOTED([GIT_VERSION], ["$GIT_VERSION"], [Defined if building from git])
+        ]
+    )
+fi
 
 AC_CONFIG_FILES([
                 Makefile
