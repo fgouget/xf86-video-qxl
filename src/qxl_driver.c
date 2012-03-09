@@ -1441,11 +1441,11 @@ qxl_pre_init(ScrnInfoPtr pScrn, int flags)
     xf86ProcessOptions(scrnIndex, pScrn->options, qxl->options);
 
     qxl->enable_image_cache =
-	xf86ReturnOptValBool (qxl->options, OPTION_ENABLE_IMAGE_CACHE, FALSE);
+	xf86ReturnOptValBool (qxl->options, OPTION_ENABLE_IMAGE_CACHE, TRUE);
     qxl->enable_fallback_cache =
-	xf86ReturnOptValBool (qxl->options, OPTION_ENABLE_FALLBACK_CACHE, FALSE);
+	xf86ReturnOptValBool (qxl->options, OPTION_ENABLE_FALLBACK_CACHE, TRUE);
     qxl->enable_surfaces =
-	xf86ReturnOptValBool (qxl->options, OPTION_ENABLE_SURFACES, FALSE);
+	xf86ReturnOptValBool (qxl->options, OPTION_ENABLE_SURFACES, TRUE);
 
     xf86DrvMsg(scrnIndex, X_INFO, "Offscreen Surfaces: %s\n",
 	       qxl->enable_surfaces? "Enabled" : "Disabled");
