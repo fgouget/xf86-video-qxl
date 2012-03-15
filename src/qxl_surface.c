@@ -885,12 +885,8 @@ qxl_surface_prepare_access (qxl_surface_t  *surface,
     
     pScreen->ModifyPixmapHeader(
 	pixmap,
-#if 0
 	pixmap->drawable.width,
 	pixmap->drawable.height,
-#endif
-	pixman_image_get_width (surface->host_image),
-	pixman_image_get_height (surface->host_image),
 	-1, -1, -1,
 	pixman_image_get_data (surface->host_image));
 
