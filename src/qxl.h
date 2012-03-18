@@ -23,8 +23,6 @@
 #ifndef QXL_H
 #define QXL_H
 
-#include "config.h"
-
 #include <stdint.h>
 
 #include <spice/qxl_dev.h>

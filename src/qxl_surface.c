@@ -43,6 +43,10 @@
  * which puts the surface into the 'free' state.
  *
  */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "qxl.h"
 
 typedef struct evacuated_surface_t evacuated_surface_t;
