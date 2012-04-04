@@ -175,7 +175,7 @@ static void qxl_destroy_primary(qxl_screen_t *qxl)
 static void qxl_set_mode(qxl_screen_t *qxl, int modenr)
 {
     struct QXLMode *mode = qxl->modes + modenr;
-    uint64_t devmem = (uint64_t)qxl->ram;
+    uint64_t devmem = pointer_to_u64(qxl->ram);
     QXLSurfaceCreate surface = {
         .width      = mode->x_res,
         .height     = mode->y_res,
