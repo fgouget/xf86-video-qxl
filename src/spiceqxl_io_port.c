@@ -58,7 +58,7 @@
 
 static int spiceqxl_io_port_debug_level = -1;
 
-static void dprint(int _level, const char *_fmt, ...)
+static void __attribute__ ((format (printf, 2, 3))) dprint(int _level, const char *_fmt, ...)
 {
     if (spiceqxl_io_port_debug_level == -1) {
         if (getenv("XSPICE_IO_PORT_DEBUG_LEVEL")) {
