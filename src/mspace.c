@@ -21,8 +21,6 @@
 #include <string.h>
 #include "mspace.h"
 
-#pragma warning( disable : 4146 ) /* no "unsigned" warnings */
-
 #define MALLOC_ALIGNMENT ((size_t)8U)
 #define USE_LOCKS 0
 #define malloc_getpagesize ((size_t)4096U)
@@ -47,12 +45,12 @@
 
 #define M_GRANULARITY        (-1)
 
-void default_abort_func(void *user_data)
+void __attribute__ ((__noreturn__)) default_abort_func(void *user_data)
 {
     for (;;);
 }
 
-void default_print_func(void *user_data, char *format, ...)
+void default_print_func(void *user_data, const char *format, ...)
 {
 }
 
@@ -762,6 +760,7 @@ static struct malloc_params mparams;
 #define segment_holds(S, A)\
   ((char*)(A) >= S->base && (char*)(A) < S->base + S->size)
 
+#if DEBUG
 /* Return segment holding given address */
 static msegmentptr segment_holding(mstate m, char* addr) {
   msegmentptr sp = &m->seg;
@@ -783,7 +782,7 @@ static int has_segment_link(mstate m, msegmentptr ss) {
       return 0;
   }
 }
-
+#endif
 
 
 /*
@@ -1795,6 +1794,7 @@ static void reset_on_error(mstate m) {
 }
 #endif /* PROCEED_ON_ERROR */
 
+#if 0
 /* Allocate chunk and prepend remainder with chunk in successor base. */
 static void* prepend_alloc(mstate m, char* newbase, char* oldbase,
                            size_t nb) {
@@ -1836,6 +1836,7 @@ static void* prepend_alloc(mstate m, char* newbase, char* oldbase,
   check_malloced_chunk(m, chunk2mem(p), nb);
   return chunk2mem(p);
 }
+#endif
 
 /* -------------------------- System allocation -------------------------- */
 
