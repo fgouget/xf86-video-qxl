@@ -252,10 +252,10 @@ void ioport_write(qxl_screen_t *qxl, uint32_t io_port, uint32_t val)
         qxl_hard_reset(qxl);
         break;
     case QXL_IO_MEMSLOT_ADD:
-        dprint(1, "QXL_IO_MEMSLOT_ADD - should not be called (this is XSpice)\n");
+        dprint(1, "QXL_IO_MEMSLOT_ADD - should not be called (this is Xspice)\n");
         break;
     case QXL_IO_MEMSLOT_DEL:
-        dprint(1, "QXL_IO_MEMSLOT_DEL - should not be called (this is XSpice)\n");
+        dprint(1, "QXL_IO_MEMSLOT_DEL - should not be called (this is Xspice)\n");
         break;
     case QXL_IO_CREATE_PRIMARY:
         assert(val == 0);
