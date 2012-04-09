@@ -730,7 +730,6 @@ surface_add_to_cache (qxl_surface_t *surface)
     
     if (n_surfaces == N_CACHED_SURFACES)
     {
-	int i;
 	destroy_id = cache->cached_surfaces[oldest]->id;
 	
 	destroy_surface = cache->cached_surfaces[oldest];
