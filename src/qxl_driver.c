@@ -122,6 +122,7 @@ qxl_available_options (int chipid, int busid)
     return DefaultOptions;
 }
 
+#ifndef XSPICE
 static void qxl_wait_for_io_command(qxl_screen_t *qxl)
 {
     struct QXLRam *ram_header = (void *)(
@@ -132,6 +133,7 @@ static void qxl_wait_for_io_command(qxl_screen_t *qxl)
     }
     ram_header->int_pending &= ~QXL_INTERRUPT_IO_CMD;
 }
+#endif
 
 void qxl_update_area(qxl_screen_t *qxl)
 {
