@@ -44,7 +44,7 @@ fedora)
 DRV_DIR=/usr/lib64/xorg/modules/drivers
 XORG_CONF_DIR=/etc/X11
 
-git clone git://anongit.freedesktop.org/~alon/xspice
+git clone git://anongit.freedesktop.org/xorg/driver/xf86-video-qxl
 sudo yum install spice-server-devel spice-protocol
 
 cd xspice
@@ -72,7 +72,7 @@ git://anongit.freedesktop.org/xorg/app/xkbcomp \
 git://anongit.freedesktop.org/xorg/xserver \
 git://anongit.freedesktop.org/xorg/lib/libxkbfile \
 git://git.freedesktop.org/git/spice/spice-protocol
-git://anongit.freedesktop.org/~alon/xspice; do git clone $src; done
+git://anongit.freedesktop.org/xorg/driver/xf86-video-qxl; do git clone $src; done
 
 build and install into some non common prefix (not to overwrite
 your existing server) - note that this is just for testing. This
