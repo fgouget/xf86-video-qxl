@@ -296,20 +296,6 @@ qxl_allocnf (qxl_screen_t *qxl, unsigned long size)
     
     while (!(result = qxl_alloc (qxl->mem, size)))
     {
-	struct QXLRam *ram_header = (void *)(
-	    (unsigned long)qxl->ram + qxl->rom->ram_header_offset);
-    
-	/* Rather than go out of memory, we simply tell the
-	 * device to dump everything
-	 */
-	ram_header->update_area.top = 0;
-	ram_header->update_area.bottom = qxl->virtual_y;
-	ram_header->update_area.left = 0;
-	ram_header->update_area.right = qxl->virtual_x;
-	ram_header->update_surface = 0;		/* Only primary for now */
-	
-        qxl_update_area(qxl);
-	
 #if 0
  	ErrorF ("eliminated memory (%d)\n", nth_oom++);
 #endif
