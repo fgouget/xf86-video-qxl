@@ -845,7 +845,6 @@ qxl_surface_prepare_access (qxl_surface_t  *surface,
     ScreenPtr pScreen = pixmap->drawable.pScreen;
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
     RegionRec new;
-    int stride, height;
 
     if (!pScrn->vtSema)
         return FALSE;
@@ -860,9 +859,6 @@ qxl_surface_prepare_access (qxl_surface_t  *surface,
     
     n_boxes = REGION_NUM_RECTS (region);
     boxes = REGION_RECTS (region);
-
-    stride = pixman_image_get_stride (surface->dev_image);
-    height = pixman_image_get_height (surface->dev_image);
 
     if (n_boxes < 25)
     {
