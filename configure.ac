@@ -36,7 +36,7 @@ AC_CONFIG_HEADERS([config.h])
 
 # Require xorg-macros: XORG_DEFAULT_OPTIONS
 m4_ifndef([XORG_MACROS_VERSION],
-          [m4_fatal([must install xorg-x11-util-macros 1.4 or later before running autoconf/autogen])])
+          [m4_fatal([you must install X.Org util-macros 1.4 or later (or the corresponding package from your distribution) before running autoconf/autogen])])
 XORG_MACROS_VERSION(1.4)
 XORG_DEFAULT_OPTIONS
 
