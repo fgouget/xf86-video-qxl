@@ -48,6 +48,8 @@ qxl_drv_la_SOURCES =				\
 	murmurhash3.c				\
 	murmurhash3.h				\
 	qxl_cursor.c				\
+	qxl_option_helpers.c		\
+	qxl_option_helpers.h		\
 	compat-api.h
 endif
 

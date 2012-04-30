@@ -38,6 +38,7 @@
 #include "xf86Cursor.h"
 #include "xf86_OSproc.h"
 #include "xf86xv.h"
+#include "xf86Crtc.h"
 #include "shadow.h"
 #include "micmap.h"
 #include "uxa/uxa.h"
@@ -100,6 +101,7 @@ enum {
     OPTION_ENABLE_IMAGE_CACHE = 0,
     OPTION_ENABLE_FALLBACK_CACHE,
     OPTION_ENABLE_SURFACES,
+    OPTION_NUM_HEADS,
 #ifdef XSPICE
     OPTION_SPICE_PORT,
     OPTION_SPICE_TLS_PORT,
@@ -155,11 +157,19 @@ struct _qxl_screen_t
     long			surface0_size;
     long			vram_size;
 
+    DisplayModePtr              x_modes;
+
     int				virtual_x;
     int				virtual_y;
     void *			fb;
-    struct QXLMode *		current_mode;
+
+    /* not the same as the heads mode for #head > 1 or virtual != head size */
+    struct QXLMode 		primary_mode;
     qxl_surface_t *		primary;
+
+    struct QXLMonitorsConfig   *monitors_config;
+    int                         monitors_config_size;
+    int                         mem_size;
     
     int				bytes_per_pixel;
 
@@ -170,6 +180,10 @@ struct _qxl_screen_t
     struct qxl_mem *		surf_mem;  /* Context for qxl_surf_alloc/free */
     
     EntityInfoPtr		entity;
+
+    int                         num_heads;
+    xf86CrtcPtr *               crtcs;
+    xf86OutputPtr *             outputs;
 
 #ifndef XSPICE
     void *			io_pages;
@@ -246,6 +260,11 @@ struct _qxl_screen_t
     } guest_primary;
 #endif /* XSPICE */
 };
+
+typedef struct qxl_output_private {
+    qxl_screen_t *qxl;
+    int           head;
+} qxl_output_private;
 
 static inline uint64_t
 physical_address (qxl_screen_t *qxl, void *virtual, uint8_t slot_id)

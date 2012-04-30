@@ -343,6 +343,12 @@ qxl_surface_recycle (surface_cache_t *cache, uint32_t id)
     cache->free_surfaces = surface;
 }
 
+/*
+ * mode is used for the whole virtual screen, not for a specific head.
+ * For a single head where virtual size is equal to the head size, they are
+ * equal. For multiple heads this mode will not match any existing heads and
+ * will be the containing virtual size.
+ */
 qxl_surface_t *
 qxl_surface_cache_create_primary (surface_cache_t	*cache,
 				  struct QXLMode	*mode)
@@ -387,9 +393,24 @@ qxl_surface_cache_create_primary (surface_cache_t	*cache,
     dev_image = pixman_image_create_bits (format, mode->x_res, mode->y_res,
 					  (uint32_t *)dev_addr, -mode->stride);
 
+    if (qxl->fb != NULL)
+        free(qxl->fb);
+    qxl->fb = calloc (qxl->virtual_x * qxl->virtual_y, 4);
+    if (!qxl->fb)
+        return NULL;
+
     host_image = pixman_image_create_bits (format, 
 					   qxl->virtual_x, qxl->virtual_y,
 					   qxl->fb, mode->stride);
+#if 0
+    xf86DrvMsg(cache->qxl->pScrn->scrnIndex, X_ERROR,
+               "testing dev_image memory (%d x %d)\n",
+               mode->x_res, mode->y_res);
+    memset(qxl->ram, 0, mode->stride * mode->y_res);
+    xf86DrvMsg(cache->qxl->pScrn->scrnIndex, X_ERROR,
+               "testing host_image memory\n");
+    memset(qxl->fb, 0, mode->stride * mode->y_res);
+#endif
 
     surface = malloc (sizeof *surface);
     surface->id = 0;
@@ -459,6 +480,7 @@ make_drawable (qxl_screen_t *qxl, int surface, uint8_t type,
     int i;
     
     drawable = qxl_allocnf (qxl, sizeof *drawable);
+    assert(drawable);
     
     drawable->release_info.id = pointer_to_u64 (drawable);
     

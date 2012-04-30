@@ -42,6 +42,7 @@
 #include <xf86Crtc.h>
 
 #include "mspace.h"
+
 #include "qxl.h"
 #include "assert.h"
 #include "qxl_option_helpers.h"
@@ -69,6 +70,8 @@ const OptionInfoRec DefaultOptions[] = {
         "EnableFallbackCache", OPTV_BOOLEAN, { 0 }, TRUE },
     { OPTION_ENABLE_SURFACES,
         "EnableSurfaces",	   OPTV_BOOLEAN, { 0 }, TRUE },
+    { OPTION_NUM_HEADS,
+        "NumHeads",	           OPTV_INTEGER, { 4 }, FALSE },
 #ifdef XSPICE
     { OPTION_SPICE_PORT,
         "SpicePort",                OPTV_INTEGER,   {5900}, FALSE },
@@ -212,6 +215,40 @@ void qxl_io_flush_surfaces(qxl_screen_t *qxl)
 #else
     ioport_write(qxl, QXL_IO_FLUSH_SURFACES_ASYNC, 0);
 #endif
+}
+
+static void qxl_io_monitors_config_async(qxl_screen_t *qxl)
+{
+#ifndef XSPICE
+    if (qxl->pci->revision < 4) {
+        return;
+    }
+    ioport_write(qxl, QXL_IO_MONITORS_CONFIG_ASYNC, 0);
+    qxl_wait_for_io_command(qxl);
+#else
+    fprintf(stderr, "UNIMPLEMENTED!\n");
+#endif
+}
+
+/* Having a single monitors config struct allocated on the device avoids any
+ *
+ * possible fragmentation. Since X is single threaded there is no danger
+ * in us changing it between issuing the io and getting the interrupt to signal
+ * spice-server is done reading it. */
+#define MAX_MONITORS_NUM 16
+
+static void
+qxl_allocate_monitors_config(qxl_screen_t *qxl)
+{
+    int size = sizeof(QXLMonitorsConfig) + sizeof(QXLHead) * MAX_MONITORS_NUM;
+
+    if (qxl->monitors_config) {
+        return;
+    }
+    qxl->monitors_config = (QXLMonitorsConfig *)(void *)(
+            (unsigned long)qxl->ram + qxl->rom->ram_header_offset
+	                            - qxl->monitors_config_size);
+    memset(qxl->monitors_config, 0, size);
 }
 
 int
@@ -452,6 +489,13 @@ qxl_unmap_memory(qxl_screen_t *qxl)
         qxl->worker_running = FALSE;
     }
 #endif
+    if (qxl->mem)
+    {
+       qxl_mem_free_all (qxl->mem);
+       qxl_drop_image_cache (qxl);
+    }
+    if (qxl->surf_mem)
+        qxl_mem_free_all (qxl->surf_mem);
     unmap_memory_helper(qxl);
     qxl->ram = qxl->ram_physical = qxl->vram = qxl->rom = NULL;
 
@@ -499,10 +543,18 @@ qxl_map_memory(qxl_screen_t *qxl, int scrnIndex)
     qxl->surface0_area = qxl->ram;
     qxl->surface0_size = qxl->rom->surface0_area_size;
 
-    qxl->mem = qxl_mem_create ((void *)((unsigned long)qxl->ram + qxl->surface0_size),
-			       qxl->rom->num_pages * getpagesize() - qxl->surface0_size);
-    qxl->surf_mem = qxl_mem_create ((void *)((unsigned long)qxl->vram), qxl->vram_size);
+    /*
+     * We keep a hole for MonitorsConfig. This is not part of QXLRam to ensure
+     * we, the driver, can change it without affecting the driver/device ABI.
+     */
+    qxl->monitors_config_size = (sizeof(QXLMonitorsConfig) +
+                                sizeof(QXLHead) * MAX_MONITORS_NUM + getpagesize() - 1)
+                                & ~(getpagesize() - 1);
+    qxl->mem_size = qxl->rom->num_pages * getpagesize() - qxl->monitors_config_size;
 
+    qxl->mem = qxl_mem_create ((void *)((unsigned long)qxl->ram + qxl->surface0_size),
+			       qxl->mem_size);
+    qxl->surf_mem = qxl_mem_create ((void *)((unsigned long)qxl->vram), qxl->vram_size);
     qxl_allocate_monitors_config(qxl);
 
     return TRUE;
@@ -593,9 +645,11 @@ qxl_reset_and_create_mem_slots (qxl_screen_t *qxl)
 #else /* QXL */
     qxl->main_mem_slot = setup_slot(qxl, 0,
         (unsigned long)qxl->ram_physical,
-        (unsigned long)qxl->ram_physical + (unsigned long)qxl->rom->num_pages * getpagesize(),
+        (unsigned long)qxl->ram_physical + qxl->surface0_size +
+                (unsigned long)qxl->rom->num_pages * getpagesize(),
         (uint64_t)(uintptr_t)qxl->ram,
-        (uint64_t)(uintptr_t)qxl->ram + (unsigned long)qxl->rom->num_pages * getpagesize()
+        (uint64_t)(uintptr_t)qxl->ram + qxl->surface0_size +
+                (unsigned long)qxl->rom->num_pages * getpagesize()
     );
     qxl->vram_mem_slot = setup_slot(qxl, 1,
         (unsigned long)qxl->vram_physical,
@@ -676,7 +730,9 @@ set_screen_pixmap_header (ScreenPtr pScreen)
     qxl_screen_t *qxl = pScrn->driverPrivate;
     PixmapPtr pPixmap = pScreen->GetScreenPixmap(pScreen);
     
-    if (pPixmap && qxl->current_mode)
+    // TODO: don't ModifyPixmapHeader too early?
+
+    if (pPixmap)
     {
 	ErrorF ("new stride: %d (display width: %d, bpp: %d)\n",
 		qxl->pScrn->displayWidth * qxl->bytes_per_pixel,
@@ -684,23 +740,27 @@ set_screen_pixmap_header (ScreenPtr pScreen)
 	
 	pScreen->ModifyPixmapHeader(
 	    pPixmap,
-	    qxl->current_mode->x_res, qxl->current_mode->y_res,
+	    qxl->primary_mode.x_res, qxl->primary_mode.y_res,
 	    -1, -1,
 	    qxl->pScrn->displayWidth * qxl->bytes_per_pixel,
 	    NULL);
     }
     else
-	ErrorF ("pix: %p; mode: %p\n", pPixmap, qxl->current_mode);
+	ErrorF ("pix: %p;\n", pPixmap);
 }
 
-static Bool
-qxl_switch_mode(SWITCH_MODE_ARGS_DECL)
+static void
+qxl_resize_primary_to_virtual(qxl_screen_t *qxl)
 {
-    SCRN_INFO_PTR(arg);
-    qxl_screen_t *qxl = pScrn->driverPrivate;
-    int mode_index = (int)(unsigned long)mode->Private;
-    struct QXLMode *m = qxl->modes + mode_index;
     ScreenPtr pScreen;
+
+    if ((qxl->primary_mode.x_res == qxl->virtual_x &&
+        qxl->primary_mode.y_res == qxl->virtual_y) &&
+        qxl->device_primary == QXL_DEVICE_PRIMARY_CREATED) {
+        return;
+    }
+
+    ErrorF ("resizing primary to %dx%d\n", qxl->virtual_x, qxl->virtual_y);
 
     if (qxl->primary)
     {
@@ -709,8 +769,18 @@ qxl_switch_mode(SWITCH_MODE_ARGS_DECL)
         qxl_io_destroy_primary(qxl);
     }
 
-    qxl->primary = qxl_surface_cache_create_primary (qxl->surface_cache, m);
-    qxl->current_mode = m;
+    {
+        struct QXLMode *pm = &qxl->primary_mode;
+        pm->id = 0x4242;
+        pm->x_res = qxl->virtual_x;
+        pm->y_res = qxl->virtual_y;
+        pm->bits = qxl->pScrn->bitsPerPixel;
+        pm->stride = qxl->virtual_x * pm->bits / 8;
+        pm->x_mili = 0; // TODO
+        pm->y_mili = 0; // TODO
+        pm->orientation = 0; // ? supported by us for single head usage? more TODO
+    }
+    qxl->primary = qxl_surface_cache_create_primary (qxl->surface_cache, &qxl->primary_mode);
     qxl->bytes_per_pixel = (qxl->pScrn->bitsPerPixel + 7) / 8;
 
     pScreen = qxl->pScrn->pScreen;
@@ -724,6 +794,33 @@ qxl_switch_mode(SWITCH_MODE_ARGS_DECL)
 	
 	set_surface (root, qxl->primary);
     }
+
+    ErrorF ("primary is %p\n", qxl->primary);
+}
+
+static void
+qxl_resize_primary(qxl_screen_t *qxl, uint32_t width, uint32_t height)
+{
+    qxl->virtual_x = width;
+    qxl->virtual_y = height;
+
+    if (qxl->vt_surfaces) {
+        ErrorF("%s: ignoring resize due to not being in control of VT\n",
+               __FUNCTION__);
+        return;
+    }
+    qxl_resize_primary_to_virtual(qxl);
+}
+
+static Bool
+qxl_switch_mode(SWITCH_MODE_ARGS_DECL)
+{
+    SCRN_INFO_PTR(arg);
+    qxl_screen_t *qxl = pScrn->driverPrivate;
+
+    ErrorF ("Ignoring display mode, ensuring recreation of primary\n");
+
+    qxl_resize_primary_to_virtual(qxl);
 
     return TRUE;
 }
@@ -743,6 +840,61 @@ enum ROPDescriptor
     ROPD_INVERS_RES = (1 <<10),
 };
 
+static void
+qxl_update_monitors_config(qxl_screen_t *qxl)
+{
+    int i;
+    QXLHead *head;
+    xf86CrtcPtr crtc;
+    QXLRam *ram = get_ram_header(qxl);
+
+    qxl->monitors_config->count = 0;
+    qxl->monitors_config->max_allowed = qxl->num_heads;
+    for (i = 0 ; i < qxl->num_heads; ++i) {
+        head = &qxl->monitors_config->heads[qxl->monitors_config->count];
+        crtc = qxl->crtcs[i];
+        head->id = i;
+        head->surface_id = 0;
+	head->flags = 0;
+        if (!crtc->enabled || crtc->mode.CrtcHDisplay == 0 ||
+            crtc->mode.CrtcVDisplay == 0) {
+            head->width = head->height = head->x = head->y = 0;
+            head->height = 0;
+        } else {
+            head->width = crtc->mode.CrtcHDisplay;
+            head->height = crtc->mode.CrtcVDisplay;
+            head->x = crtc->x;
+            head->y = crtc->y;
+            qxl->monitors_config->count++;
+        }
+    }
+    /* initialize when actually used, memslots should be initialized by now */
+    if (ram->monitors_config == 0) {
+        ram->monitors_config = physical_address (qxl, qxl->monitors_config,
+                                                 qxl->main_mem_slot);
+    }
+    qxl_io_monitors_config_async(qxl);
+}
+
+static Bool
+qxl_create_desired_modes(qxl_screen_t *qxl)
+{
+    int i;
+    xf86CrtcConfigPtr config = XF86_CRTC_CONFIG_PTR(qxl->pScrn);
+
+    for (i = 0 ; i < config->num_crtc; ++i) {
+        xf86CrtcPtr crtc = config->crtc[i];
+        if (!crtc->enabled) {
+            continue;
+        }
+        if (!crtc->funcs->set_mode_major(crtc, &crtc->desiredMode, crtc->desiredRotation,
+                                         crtc->desiredX, crtc->desiredY))
+            return FALSE;
+    }
+    qxl_update_monitors_config(qxl);
+    return TRUE;
+}
+
 static Bool
 qxl_create_screen_resources(ScreenPtr pScreen)
 {
@@ -751,6 +903,7 @@ qxl_create_screen_resources(ScreenPtr pScreen)
     Bool ret;
     PixmapPtr pPixmap;
     qxl_surface_t *surf;
+    int i;
     
     pScreen->CreateScreenResources = qxl->create_screen_resources;
     ret = pScreen->CreateScreenResources (pScreen);
@@ -767,7 +920,14 @@ qxl_create_screen_resources(ScreenPtr pScreen)
 	qxl_surface_kill (surf);
     
     set_surface (pPixmap, qxl->primary);
-    
+
+    /* HACK - I don't want to enable any crtcs other then the first at the beginning */
+    for (i = 1; i < qxl->num_heads; ++i) {
+        qxl->crtcs[i]->enabled = 0;
+    }
+
+    qxl_create_desired_modes(qxl);
+
     return TRUE;
 }
 
@@ -1096,6 +1256,27 @@ spiceqxl_screen_init(ScrnInfoPtr pScrn, qxl_screen_t *qxl)
 #endif
 
 static Bool
+qxl_fb_init(qxl_screen_t *qxl, ScreenPtr pScreen)
+{
+    ScrnInfoPtr pScrn = qxl->pScrn;
+
+#if 0
+    ErrorF ("allocated %d x %d  %p\n", pScrn->virtualX, pScrn->virtualY, qxl->fb);
+#endif
+
+    if (!fbScreenInit(pScreen, NULL,
+		      pScrn->virtualX, pScrn->virtualY,
+		      pScrn->xDpi, pScrn->yDpi, pScrn->displayWidth,
+		      pScrn->bitsPerPixel))
+    {
+	return FALSE;
+    }
+
+    fbPictureInit(pScreen, NULL, 0);
+    return TRUE;
+}
+
+static Bool
 qxl_screen_init(SCREEN_INIT_ARGS_DECL)
 {
     ScrnInfoPtr pScrn = xf86ScreenToScrn(pScreen);
@@ -1105,7 +1286,7 @@ qxl_screen_init(SCREEN_INIT_ARGS_DECL)
 
     CHECK_POINT();
 
-    qxl->pScrn = pScrn;
+    assert(qxl->pScrn == pScrn);
 
     if (!qxl_map_memory(qxl, pScrn->scrnIndex))
 	return FALSE;
@@ -1127,10 +1308,6 @@ qxl_screen_init(SCREEN_INIT_ARGS_DECL)
 	goto out;
     if (!miSetPixmapDepths())
 	goto out;
-    
-    qxl->virtual_x = pScrn->virtualX;
-    qxl->virtual_y = pScrn->virtualY;
-    
     pScrn->displayWidth = pScrn->virtualX;
     
     qxl->fb = calloc (pScrn->virtualY * pScrn->displayWidth, 4);
@@ -1144,13 +1321,8 @@ qxl_screen_init(SCREEN_INIT_ARGS_DECL)
     pScrn->virtualX = pScrn->currentMode->HDisplay;
     pScrn->virtualY = pScrn->currentMode->VDisplay;
 
-    if (!fbScreenInit(pScreen, qxl->fb,
-		      pScrn->virtualX, pScrn->virtualY,
-		      pScrn->xDpi, pScrn->yDpi, pScrn->displayWidth,
-		      pScrn->bitsPerPixel))
-    {
-	goto out;
-    }
+    if (!qxl_fb_init(qxl, pScreen))
+        goto out;
     
     visual = pScreen->visuals + pScreen->numVisuals;
     while (--visual >= pScreen->visuals) 
@@ -1165,8 +1337,6 @@ qxl_screen_init(SCREEN_INIT_ARGS_DECL)
 	    visual->blueMask = pScrn->mask.blue;
 	}
     }
-    
-    fbPictureInit(pScreen, NULL, 0);
     
     qxl->uxa = uxa_driver_alloc ();
     
@@ -1220,7 +1390,11 @@ qxl_screen_init(SCREEN_INIT_ARGS_DECL)
     pScreen->width = pScrn->currentMode->HDisplay;
     pScreen->height = pScrn->currentMode->VDisplay;
     
-    qxl_switch_mode(SWITCH_MODE_ARGS(pScrn, pScrn->currentMode));
+    if (!xf86CrtcScreenInit(pScreen)) {
+        return FALSE;
+    }
+
+    qxl_resize_primary_to_virtual(qxl);
     
     /* Note: this must be done after DamageSetup() because it calls
      * _dixInitPrivates. And if that has been called, DamageSetup()
@@ -1246,7 +1420,7 @@ qxl_enter_vt(VT_FUNC_ARGS_DECL)
 
     qxl_reset_and_create_mem_slots (qxl);
 
-    qxl_switch_mode(SWITCH_MODE_ARGS(pScrn, pScrn->currentMode));
+    qxl_resize_primary_to_virtual(qxl);
 
     if (qxl->mem)
     {
@@ -1263,6 +1437,8 @@ qxl_enter_vt(VT_FUNC_ARGS_DECL)
 
 	qxl->vt_surfaces = NULL;
     }
+
+    qxl_create_desired_modes(qxl);
 
     pScrn->EnableDisableFBAccess (XF86_SCRN_ARG(pScrn), TRUE);
     
@@ -1373,79 +1549,10 @@ qxl_check_device(ScrnInfoPtr pScrn, qxl_screen_t *qxl)
 }
 #endif /* !XSPICE */
 
-static int
-qxl_find_native_mode(ScrnInfoPtr pScrn, DisplayModePtr p)
-{
-    int i;
-    qxl_screen_t *qxl = pScrn->driverPrivate;
-    
-    CHECK_POINT();
-    
-    for (i = 0; i < qxl->num_modes; i++) 
-    {
-	struct QXLMode *m = qxl->modes + i;
-	
-	if (m->x_res == p->HDisplay &&
-	    m->y_res == p->VDisplay &&
-	    m->bits == pScrn->bitsPerPixel)
-	{
-	    if (m->bits == 16) 
-	    {
-		/* What QXL calls 16 bit is actually x1r5g5b515 */
-		if (pScrn->depth == 15)
-		    return i;
-	    }
-	    else if (m->bits == 32)
-	    {
-		/* What QXL calls 32 bit is actually x8r8g8b8 */
-		if (pScrn->depth == 24)
-		    return i;
-	    }
-	}
-    }
-    
-    return -1;
-}
-
-static ModeStatus
-qxl_valid_mode(SCRN_ARG_TYPE arg, DisplayModePtr p, Bool flag, int pass)
-{
-    SCRN_INFO_PTR(arg);
-    int scrnIndex = pScrn->scrnIndex;
-    qxl_screen_t *qxl = pScrn->driverPrivate;
-    int bpp = pScrn->bitsPerPixel;
-    int mode_idx;
-    
-    /* FIXME: I don't think this is necessary now that we report the
-     * correct amount of video ram?
-     */
-    if (p->HDisplay * p->VDisplay * (bpp/8) > qxl->surface0_size)
-    {
-	xf86DrvMsg(scrnIndex, X_INFO, "rejecting mode %d x %d: insufficient memory\n", p->HDisplay, p->VDisplay);
-	return MODE_MEM;
-    }
-    
-    mode_idx = qxl_find_native_mode (pScrn, p);
-    if (mode_idx == -1)
-    {
-	xf86DrvMsg(scrnIndex, X_INFO, "rejecting unknown mode %d x %d\n", p->HDisplay, p->VDisplay);
-	return MODE_NOMODE;
-    }
-    p->Private = (void *)(unsigned long)mode_idx;
-    
-    xf86DrvMsg (scrnIndex, X_INFO, "accepting %d x %d\n", p->HDisplay, p->VDisplay);
-    
-    return MODE_OK;
-}
-
-static void qxl_add_mode(ScrnInfoPtr pScrn, int width, int height, int type)
+static DisplayModePtr qxl_add_mode(qxl_screen_t *qxl, ScrnInfoPtr pScrn,
+                                   int width, int height, int type)
 {
     DisplayModePtr mode;
-
-    /* Skip already present modes */
-    for (mode = pScrn->monitor->Modes; mode; mode = mode->next)
-        if (mode->HDisplay == width && mode->VDisplay == height)
-            return;
 
     mode = xnfcalloc(1, sizeof(DisplayModeRec));
 
@@ -1463,22 +1570,284 @@ static void qxl_add_mode(ScrnInfoPtr pScrn, int width, int height, int type)
     mode->Flags = V_NHSYNC | V_PVSYNC;
 
     xf86SetModeDefaultName(mode);
-    xf86ModesAdd(pScrn->monitor->Modes, mode);
+    xf86SetModeCrtc(mode, pScrn->adjustFlags); /* needed? xf86-video-modesetting does this */
+    qxl->x_modes = xf86ModesAdd(qxl->x_modes, mode);
+    return mode;
+}
+
+static DisplayModePtr
+qxl_output_get_modes(xf86OutputPtr output)
+{
+    qxl_output_private *qxl_output = output->driver_private;
+
+    /* xf86ProbeOutputModes owns this memory */
+    return xf86DuplicateModes(qxl_output->qxl->pScrn, qxl_output->qxl->x_modes);
+}
+
+static void
+qxl_output_destroy(xf86OutputPtr output)
+{
+    qxl_output_private *qxl_output = output->driver_private;
+
+    xf86DrvMsg(qxl_output->qxl->pScrn->scrnIndex, X_INFO,
+               "%s", __func__);
+}
+
+static void
+qxl_output_dpms(xf86OutputPtr output, int mode)
+{
+}
+
+static void
+qxl_output_create_resources(xf86OutputPtr output)
+{
+}
+
+static Bool
+qxl_output_set_property(xf86OutputPtr output, Atom property,
+        RRPropertyValuePtr value)
+{
+    return FALSE;
+}
+
+static Bool
+qxl_output_get_property(xf86OutputPtr output, Atom property)
+{
+    return TRUE;
+}
+
+static xf86OutputStatus
+qxl_output_detect(xf86OutputPtr output)
+{
+    // TODO - how do I query this? do I add fields and let the host set this instead
+    // of the guest agent? or can I set this via the guest agent? I could just check
+    // some files / anything in userspace, settable by the guest agent. dbus even.
+    return XF86OutputStatusConnected;
+}
+
+static Bool
+qxl_output_mode_valid(xf86OutputPtr output, DisplayModePtr pModes)
+{
+    return MODE_OK;
+}
+
+static const xf86OutputFuncsRec qxl_output_funcs = {
+    .dpms = qxl_output_dpms,
+    .create_resources = qxl_output_create_resources,
+#ifdef RANDR_12_INTERFACE
+    .set_property = qxl_output_set_property,
+    .get_property = qxl_output_get_property,
+#endif
+    .detect = qxl_output_detect,
+    .mode_valid = qxl_output_mode_valid,
+
+    .get_modes = qxl_output_get_modes,
+    .destroy = qxl_output_destroy
+};
+
+static void
+qxl_crtc_dpms(xf86CrtcPtr crtc, int mode)
+{
+}
+
+static Bool
+qxl_crtc_set_mode_major(xf86CrtcPtr crtc, DisplayModePtr mode,
+                        Rotation rotation, int x, int y)
+{
+    qxl_screen_t *qxl = crtc->driver_private;
+
+    crtc->mode = *mode;
+    crtc->x = x;
+    crtc->y = y;
+    crtc->rotation = rotation;
+#if XORG_VERSION_CURRENT >= XORG_VERSION_NUMERIC(1,5,99,0,0)
+    crtc->transformPresent = FALSE;
+#endif
+    qxl_update_monitors_config(qxl);
+    return TRUE;
+}
+
+static void
+qxl_crtc_set_cursor_colors (xf86CrtcPtr crtc, int bg, int fg)
+{
+}
+
+static void
+qxl_crtc_set_cursor_position (xf86CrtcPtr crtc, int x, int y)
+{
+}
+
+static void
+qxl_crtc_load_cursor_argb (xf86CrtcPtr crtc, CARD32 *image)
+{
+}
+
+static void
+qxl_crtc_hide_cursor (xf86CrtcPtr crtc)
+{
+}
+
+static void
+qxl_crtc_show_cursor (xf86CrtcPtr crtc)
+{
+}
+
+static void
+qxl_crtc_gamma_set(xf86CrtcPtr crtc, uint16_t *red, uint16_t *green,
+                              uint16_t *blue, int size)
+{
+}
+
+static void
+qxl_crtc_destroy (xf86CrtcPtr crtc)
+{
+    qxl_screen_t *qxl = crtc->driver_private;
+
+    xf86DrvMsg(qxl->pScrn->scrnIndex, X_INFO, "%s\n", __func__);
+}
+
+static Bool
+qxl_crtc_lock (xf86CrtcPtr crtc)
+{
+    qxl_screen_t *qxl = crtc->driver_private;
+
+    xf86DrvMsg(qxl->pScrn->scrnIndex, X_INFO, "%s\n", __func__);
+    return TRUE;
+}
+
+static void
+qxl_crtc_unlock (xf86CrtcPtr crtc)
+{
+    qxl_screen_t *qxl = crtc->driver_private;
+
+    xf86DrvMsg(qxl->pScrn->scrnIndex, X_INFO, "%s\n", __func__);
+    qxl_update_monitors_config(qxl);
+}
+
+static const xf86CrtcFuncsRec qxl_crtc_funcs = {
+    .dpms = qxl_crtc_dpms,
+    .set_mode_major = qxl_crtc_set_mode_major,
+    .set_cursor_colors = qxl_crtc_set_cursor_colors,
+    .set_cursor_position = qxl_crtc_set_cursor_position,
+    .show_cursor = qxl_crtc_show_cursor,
+    .hide_cursor = qxl_crtc_hide_cursor,
+    .load_cursor_argb = qxl_crtc_load_cursor_argb,
+    .lock = qxl_crtc_lock,
+    .unlock = qxl_crtc_unlock,
+
+    .gamma_set = qxl_crtc_gamma_set,
+    .destroy = qxl_crtc_destroy,
+};
+
+static Bool
+qxl_xf86crtc_resize (ScrnInfoPtr scrn, int width, int height)
+{
+    qxl_screen_t *qxl = scrn->driverPrivate;
+
+    xf86DrvMsg(scrn->scrnIndex, X_INFO, "%s: Placeholder resize %dx%d\n",
+               __func__, width, height);
+    qxl_resize_primary(qxl, width, height);
+    scrn->virtualX = width;
+    scrn->virtualY = height;
+    qxl_update_monitors_config(qxl);
+    return TRUE;
 }
 
 static const xf86CrtcConfigFuncsRec qxl_xf86crtc_config_funcs = {
-        NULL
+    qxl_xf86crtc_resize
 };
+
+static void
+qxl_init_randr(ScrnInfoPtr pScrn, qxl_screen_t *qxl)
+{
+    char name[32];
+    qxl_output_private *qxl_output;
+    int i;
+    xf86OutputPtr output;
+    int maxWidth;
+    int maxHeight;
+
+    /* TODO: Hack */
+    switch (qxl->num_heads) {
+    case 1:
+        maxWidth = 1024;
+        maxHeight = 768;
+        break;
+    case 2:
+        maxWidth = 2048;
+        maxHeight = 1024;
+    default:
+        maxWidth = (qxl->num_heads > 4 ? 4 : qxl->num_heads) * 1280;
+        maxHeight = 1024;
+    }
+
+    xf86CrtcConfigInit(pScrn, &qxl_xf86crtc_config_funcs);
+
+    /* This is actually redundant, it's overwritten by a later call via
+     * xf86InitialConfiguration */
+    xf86CrtcSetSizeRange(pScrn, 320, 200, maxWidth, maxHeight);
+
+    qxl->crtcs = xnfcalloc(sizeof(xf86CrtcPtr), qxl->num_heads);
+    qxl->outputs = xnfcalloc(sizeof(xf86OutputPtr), qxl->num_heads);
+    for (i = 0 ; i < qxl->num_heads; ++i) {
+        qxl->crtcs[i] = xf86CrtcCreate(pScrn, &qxl_crtc_funcs);
+        if (!qxl->crtcs[i]) {
+            xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "failed to create Crtc %d",
+                       i);
+        }
+        qxl->crtcs[i]->driver_private = qxl;
+        snprintf(name, sizeof(name), "qxl-%d", i);
+        qxl->outputs[i] = output = xf86OutputCreate(pScrn, &qxl_output_funcs, name);
+        if (!output) {
+            xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "failed to create Output %d",
+                       i);
+        }
+        output->possible_crtcs = (1 << i); /* bitrange of allowed outputs - do a 1:1 */
+        output->possible_clones = 0; /* TODO: not? */
+        qxl_output = xnfcalloc(sizeof(qxl_output_private), 1);
+        output->driver_private = qxl_output;
+        qxl_output->head = i;
+        qxl_output->qxl = qxl;
+    }
+
+    qxl->virtual_x = 1024;
+    qxl->virtual_y = 768;
+
+    pScrn->display->virtualX = qxl->virtual_x;
+    pScrn->display->virtualY = qxl->virtual_y;
+
+    xf86InitialConfiguration(pScrn, TRUE);
+}
+
+static void
+qxl_initialize_x_modes(qxl_screen_t *qxl, ScrnInfoPtr pScrn,
+                       unsigned int *max_x, unsigned int *max_y)
+{
+    int i;
+
+    *max_x = *max_y = 0;
+    /* Create a list of modes used by the qxl_output_get_modes */
+    for (i = 0; i < qxl->num_modes; i++) {
+        if (qxl->modes[i].orientation == 0) {
+            qxl_add_mode(qxl, pScrn, qxl->modes[i].x_res, qxl->modes[i].y_res,
+                         M_T_DRIVER);
+            if (qxl->modes[i].x_res > *max_x)
+                *max_x = qxl->modes[i].x_res;
+            if (qxl->modes[i].y_res > *max_y)
+                *max_y = qxl->modes[i].y_res;
+        }
+    }
+}
 
 static Bool
 qxl_pre_init(ScrnInfoPtr pScrn, int flags)
 {
-    int i, scrnIndex = pScrn->scrnIndex;
+    int scrnIndex = pScrn->scrnIndex;
     qxl_screen_t *qxl = NULL;
     ClockRangePtr clockRanges = NULL;
-    int *linePitches = NULL;
-    DisplayModePtr mode;
-    unsigned int max_x = 0, max_y = 0;
+    //int *linePitches = NULL;
+    //DisplayModePtr mode;
+    unsigned int max_x, max_y;
 
     /* In X server 1.7.5, Xorg -configure will cause this
      * function to get called without a confScreen.
@@ -1502,6 +1871,8 @@ qxl_pre_init(ScrnInfoPtr pScrn, int flags)
     qxl = pScrn->driverPrivate;
     memset(qxl, 0, sizeof(qxl));
     qxl->device_primary = QXL_DEVICE_PRIMARY_UNDEFINED;
+    qxl->pScrn = pScrn;
+    qxl->x_modes = NULL;
 
     qxl->entity = xf86GetEntityInfo(pScrn->entityList[0]);
     
@@ -1528,6 +1899,8 @@ qxl_pre_init(ScrnInfoPtr pScrn, int flags)
 	xf86ReturnOptValBool (qxl->options, OPTION_ENABLE_FALLBACK_CACHE, TRUE);
     qxl->enable_surfaces =
 	xf86ReturnOptValBool (qxl->options, OPTION_ENABLE_SURFACES, TRUE);
+    qxl->num_heads =
+	get_int_option (qxl->options, OPTION_NUM_HEADS, "QXL_NUM_HEADS");
 
     xf86DrvMsg(scrnIndex, X_INFO, "Offscreen Surfaces: %s\n",
 	       qxl->enable_surfaces? "Enabled" : "Disabled");
@@ -1572,17 +1945,9 @@ qxl_pre_init(ScrnInfoPtr pScrn, int flags)
 	pScrn->monitor->nVrefresh = 1;
     }
     
-    /* Add any modes not in xorg's default mode list */
-    for (i = 0; i < qxl->num_modes; i++)
-        if (qxl->modes[i].orientation == 0) {
-            qxl_add_mode(pScrn, qxl->modes[i].x_res, qxl->modes[i].y_res,
-                         M_T_DRIVER);
-            if (qxl->modes[i].x_res > max_x)
-                max_x = qxl->modes[i].x_res;
-            if (qxl->modes[i].y_res > max_y)
-                max_y = qxl->modes[i].y_res;
-        }
+    qxl_initialize_x_modes(qxl, pScrn, &max_x, &max_y);
 
+#if 0
     if (pScrn->display->virtualX == 0 && pScrn->display->virtualY == 0) {
         /* It is possible for the largest x + largest y size combined leading
            to a virtual size which will not fit into the framebuffer when this
@@ -1604,14 +1969,14 @@ qxl_pre_init(ScrnInfoPtr pScrn, int flags)
 			       pScrn->display->virtualY,
 			       128 * 1024 * 1024, LOOKUP_BEST_REFRESH))
 	goto out;
+#endif
     
     CHECK_POINT();
     
-    xf86CrtcConfigInit(pScrn, &qxl_xf86crtc_config_funcs);
-
     xf86PruneDriverModes(pScrn);
 
-    pScrn->currentMode = pScrn->modes;
+    qxl_init_randr(pScrn, qxl);
+#if 0
     /* If no modes are specified in xorg.conf, default to 1024x768 */
     if (pScrn->display->modes == NULL || pScrn->display->modes[0] == NULL)
         for (mode = pScrn->modes; mode; mode = mode->next)
@@ -1619,8 +1984,9 @@ qxl_pre_init(ScrnInfoPtr pScrn, int flags)
                 pScrn->currentMode = mode;
                 break;
             }
+#endif
 
-    xf86PrintModes(pScrn);
+    //xf86PrintModes(pScrn);
     xf86SetDpi(pScrn, 0, 0);
     
     if (!xf86LoadSubModule(pScrn, "fb")
@@ -1714,7 +2080,7 @@ qxl_init_scrn(ScrnInfoPtr pScrn)
     pScrn->PreInit	    = qxl_pre_init;
     pScrn->ScreenInit	    = qxl_screen_init;
     pScrn->SwitchMode	    = qxl_switch_mode;
-    pScrn->ValidMode	    = qxl_valid_mode;
+    pScrn->ValidMode	    = NULL,
     pScrn->EnterVT	    = qxl_enter_vt;
     pScrn->LeaveVT	    = qxl_leave_vt;
 }
