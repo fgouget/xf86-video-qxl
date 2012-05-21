@@ -357,8 +357,6 @@ make_surface_cmd (surface_cache_t *cache, uint32_t id, QXLSurfaceCmdType type)
     struct QXLSurfaceCmd *cmd;
     qxl_screen_t *qxl = cache->qxl;
 
-    qxl_garbage_collect (qxl);
-    
     cmd = qxl_allocnf (qxl, sizeof *cmd);
 
     cmd->release_info.id = pointer_to_u64 (cmd) | 2;
