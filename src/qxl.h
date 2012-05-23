@@ -434,9 +434,11 @@ static inline void qxl_mem_unverifiable(struct qxl_mem *mem) {}
  * I/O port commands
  */
 void qxl_update_area(qxl_screen_t *qxl);
-void qxl_memslot_add(qxl_screen_t *qxl, uint8_t id);
-void qxl_create_primary(qxl_screen_t *qxl);
-void qxl_notify_oom(qxl_screen_t *qxl);
+void qxl_io_memslot_add(qxl_screen_t *qxl, uint8_t id);
+void qxl_io_create_primary(qxl_screen_t *qxl);
+void qxl_io_notify_oom(qxl_screen_t *qxl);
+void qxl_io_flush_surfaces(qxl_screen_t *qxl);
+void qxl_io_destroy_all_surfaces (qxl_screen_t *qxl);
 
 #ifdef XSPICE
 /* device to spice-server, now xspice to spice-server */

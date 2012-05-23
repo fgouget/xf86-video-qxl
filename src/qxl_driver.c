@@ -153,7 +153,7 @@ void qxl_update_area(qxl_screen_t *qxl)
 #endif
 }
 
-void qxl_memslot_add(qxl_screen_t *qxl, uint8_t id)
+void qxl_io_memslot_add(qxl_screen_t *qxl, uint8_t id)
 {
 #ifndef XSPICE
     if (qxl->pci->revision >= 3) {
@@ -167,7 +167,7 @@ void qxl_memslot_add(qxl_screen_t *qxl, uint8_t id)
 #endif
 }
 
-void qxl_create_primary(qxl_screen_t *qxl)
+void qxl_io_create_primary(qxl_screen_t *qxl)
 {
 #ifndef XSPICE
     if (qxl->pci->revision >= 3) {
@@ -182,9 +182,19 @@ void qxl_create_primary(qxl_screen_t *qxl)
     qxl->device_primary = QXL_DEVICE_PRIMARY_CREATED;
 }
 
-void qxl_notify_oom(qxl_screen_t *qxl)
+void qxl_io_notify_oom(qxl_screen_t *qxl)
 {
     ioport_write(qxl, QXL_IO_NOTIFY_OOM, 0);
+}
+
+void qxl_io_flush_surfaces(qxl_screen_t *qxl)
+{
+#ifndef XSPICE
+    ioport_write(qxl, QXL_IO_FLUSH_SURFACES_ASYNC, 0);
+    qxl_wait_for_io_command(qxl);
+#else
+    ioport_write(qxl, QXL_IO_FLUSH_SURFACES_ASYNC, 0);
+#endif
 }
 
 int
@@ -275,7 +285,7 @@ qxl_usleep (int useconds)
 int
 qxl_handle_oom (qxl_screen_t *qxl)
 {
-    qxl_notify_oom(qxl);
+    qxl_io_notify_oom(qxl);
 
 #if 0
     ErrorF (".");
@@ -533,7 +543,7 @@ setup_slot(qxl_screen_t *qxl, uint8_t slot_index_offset,
     ram_header->mem_slot.mem_start = slot->start_phys_addr;
     ram_header->mem_slot.mem_end = slot->end_phys_addr;
 
-    qxl_memslot_add(qxl, slot_index);
+    qxl_io_memslot_add(qxl, slot_index);
 
     slot->generation = qxl->rom->slot_generation;
     
@@ -584,6 +594,25 @@ qxl_mark_mem_unverifiable(qxl_screen_t *qxl)
 {
     qxl_mem_unverifiable(qxl->mem);
     qxl_mem_unverifiable(qxl->surf_mem);
+}
+
+void
+qxl_io_destroy_all_surfaces (qxl_screen_t *qxl)
+{
+#ifndef XSPICE
+    if (qxl->pci->revision >= 3)
+    {
+        ioport_write(qxl, QXL_IO_DESTROY_ALL_SURFACES_ASYNC, 0);
+        qxl_wait_for_io_command(qxl);
+    }
+    else
+    {
+        ioport_write(qxl, QXL_IO_DESTROY_ALL_SURFACES, 0);
+    }
+#else
+    ErrorF("Xspice: error: UNIMPLEMENTED qxl_io_destroy_all_surfaces\n");
+#endif
+    qxl->device_primary = QXL_DEVICE_PRIMARY_NONE;
 }
 
 static Bool

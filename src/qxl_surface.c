@@ -336,7 +336,7 @@ qxl_surface_cache_create_primary (surface_cache_t	*cache,
     create->type = QXL_SURF_TYPE_PRIMARY;
     create->mem = physical_address (cache->qxl, cache->qxl->ram, cache->qxl->main_mem_slot);
 
-    qxl_create_primary(qxl);
+    qxl_io_create_primary(qxl);
 
     dev_addr = (uint8_t *)qxl->ram + mode->stride * (mode->y_res - 1);
 
