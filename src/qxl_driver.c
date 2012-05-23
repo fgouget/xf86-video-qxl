@@ -41,6 +41,7 @@
 
 #include <xf86Crtc.h>
 
+#include "mspace.h"
 #include "qxl.h"
 #include "assert.h"
 #include "qxl_option_helpers.h"
@@ -430,6 +431,21 @@ qxl_unmap_memory(qxl_screen_t *qxl)
     qxl->modes = NULL;
 }
 
+static void __attribute__ ((__noreturn__)) qxl_mspace_abort_func(void *user_data)
+{
+    abort();
+}
+
+static void __attribute__((format(gnu_printf, 2, 3)))
+qxl_mspace_print_func(void *user_data, const char *format, ...)
+{
+    va_list args;
+
+    va_start(args, format);
+    VErrorF(format, args);
+    va_end(args);
+}
+
 static Bool
 qxl_map_memory(qxl_screen_t *qxl, int scrnIndex)
 {
@@ -458,6 +474,9 @@ qxl_map_memory(qxl_screen_t *qxl, int scrnIndex)
     qxl->mem = qxl_mem_create ((void *)((unsigned long)qxl->ram + qxl->surface0_size),
 			       qxl->rom->num_pages * getpagesize() - qxl->surface0_size);
     qxl->surf_mem = qxl_mem_create ((void *)((unsigned long)qxl->vram), qxl->vram_size);
+
+    mspace_set_abort_func(qxl_mspace_abort_func);
+    mspace_set_print_func(qxl_mspace_print_func);
 
     return TRUE;
 }
