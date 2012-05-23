@@ -275,6 +275,10 @@ void ioport_write(qxl_screen_t *qxl, uint32_t io_port, uint32_t val)
     case QXL_IO_DESTROY_ALL_SURFACES:
         qxl->worker->destroy_surfaces(qxl->worker);
         break;
+    case QXL_IO_FLUSH_SURFACES_ASYNC:
+        fprintf(stderr, "ERROR: async callback Unimplemented\n");
+        spice_qxl_flush_surfaces_async(&qxl->display_sin, 0);
+        break;
     default:
         fprintf(stderr, "%s: ioport=0x%x, abort()\n", __FUNCTION__, io_port);
         abort();
