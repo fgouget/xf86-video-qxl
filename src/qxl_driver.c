@@ -1449,6 +1449,7 @@ qxl_pre_init(ScrnInfoPtr pScrn, int flags)
     if (!pScrn->driverPrivate)
 	pScrn->driverPrivate = xnfcalloc(sizeof(qxl_screen_t), 1);
     qxl = pScrn->driverPrivate;
+    memset(qxl, 0, sizeof(qxl));
 
     qxl->entity = xf86GetEntityInfo(pScrn->entityList[0]);
     
