@@ -1207,13 +1207,6 @@ qxl_screen_init(SCREEN_INIT_ARGS_DECL)
     if (!miCreateDefColormap(pScreen))
       goto out;
 
-    /* Note: this must be done after DamageSetup() because it calls
-     * _dixInitPrivates. And if that has been called, DamageSetup()
-     * will assert.
-     */
-    if (!uxa_resources_init (pScreen))
-	return FALSE;
-    
     qxl->create_screen_resources = pScreen->CreateScreenResources;
     pScreen->CreateScreenResources = qxl_create_screen_resources;
     
@@ -1229,6 +1222,12 @@ qxl_screen_init(SCREEN_INIT_ARGS_DECL)
     
     qxl_switch_mode(SWITCH_MODE_ARGS(pScrn, pScrn->currentMode));
     
+    /* Note: this must be done after DamageSetup() because it calls
+     * _dixInitPrivates. And if that has been called, DamageSetup()
+     * will assert.
+     */
+    if (!uxa_resources_init (pScreen))
+	return FALSE;
     CHECK_POINT();
 
     return TRUE;
