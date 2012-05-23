@@ -27,12 +27,29 @@
 #include "qxl.h"
 #include "mspace.h"
 
+#ifdef DEBUG_QXL_MEM
+#include <valgrind/memcheck.h>
+#endif
+
 struct qxl_mem
 {
     mspace	space;
     void *	base;
     unsigned long n_bytes;
+#ifdef DEBUG_QXL_MEM
+    size_t used_initial;
+    int unverifiable;
+    int missing;
+#endif
 };
+
+#ifdef DEBUG_QXL_MEM
+void
+qxl_mem_unverifiable(struct qxl_mem *mem)
+{
+    mem->unverifiable = 1;
+}
+#endif
 
 struct qxl_mem *
 qxl_mem_create       (void                   *base,
@@ -50,6 +67,17 @@ qxl_mem_create       (void                   *base,
     
     mem->base = base;
     mem->n_bytes = n_bytes;
+
+#ifdef DEBUG_QXL_MEM
+    {
+        size_t used;
+
+        mspace_malloc_stats_return(mem->space, NULL, NULL, &used);
+        mem->used_initial = used;
+        mem->unverifiable = 0;
+        mem->missing = 0;
+    }
+#endif
 
 out:
     return mem;
@@ -69,7 +97,15 @@ void *
 qxl_alloc            (struct qxl_mem         *mem,
 		      unsigned long           n_bytes)
 {
-    return mspace_malloc (mem->space, n_bytes);
+    void *addr = mspace_malloc (mem->space, n_bytes);
+
+#ifdef DEBUG_QXL_MEM
+    VALGRIND_MALLOCLIKE_BLOCK(addr, n_bytes, 0, 0);
+#ifdef DEBUG_QXL_MEM_VERBOSE
+    fprintf(stderr, "alloc %p: %ld\n", addr, n_bytes);
+#endif
+#endif
+    return addr;
 }
 
 void
@@ -77,11 +113,28 @@ qxl_free             (struct qxl_mem         *mem,
 		      void                   *d)
 {
     mspace_free (mem->space, d);
+#ifdef DEBUG_QXL_MEM
+#ifdef DEBUG_QXL_MEM_VERBOSE
+    fprintf(stderr, "free  %p\n", d);
+#endif
+    VALGRIND_FREELIKE_BLOCK(d, 0);
+#endif
 }
 
 void
 qxl_mem_free_all     (struct qxl_mem         *mem)
 {
+#ifdef DEBUG_QXL_MEM
+    size_t maxfp, fp, used;
+
+    if (mem->space)
+    {
+        mspace_malloc_stats_return(mem->space, &maxfp, &fp, &used);
+        mem->missing = used - mem->used_initial;
+        ErrorF ("untracked %zd bytes (%s)", used - mem->used_initial,
+            mem->unverifiable ? "marked unverifiable" : "oops");
+    }
+#endif
     mem->space = create_mspace_with_base (mem->base, mem->n_bytes, 0, NULL);
 }
 

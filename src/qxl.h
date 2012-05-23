@@ -416,6 +416,12 @@ void *            qxl_allocnf          (qxl_screen_t           *qxl,
 					unsigned long           size);
 int		   qxl_garbage_collect (qxl_screen_t *qxl);
 
+#ifdef DEBUG_QXL_MEM
+void qxl_mem_unverifiable(struct qxl_mem *mem);
+#else
+static inline void qxl_mem_unverifiable(struct qxl_mem *mem) {}
+#endif
+
 /*
  * I/O port commands
  */

@@ -558,6 +558,13 @@ qxl_reset (qxl_screen_t *qxl)
 #endif
 }
 
+static void
+qxl_mark_mem_unverifiable(qxl_screen_t *qxl)
+{
+    qxl_mem_unverifiable(qxl->mem);
+    qxl_mem_unverifiable(qxl->surf_mem);
+}
+
 static Bool
 qxl_close_screen(CLOSE_SCREEN_ARGS_DECL)
 {
@@ -582,6 +589,7 @@ qxl_close_screen(CLOSE_SCREEN_ARGS_DECL)
     if (pScrn->vtSema)
     {
         qxl_restore_state(pScrn);
+        qxl_mark_mem_unverifiable(qxl);
 	qxl_unmap_memory(qxl);
     }
     pScrn->vtSema = FALSE;
