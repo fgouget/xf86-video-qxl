@@ -1479,7 +1479,8 @@ static struct mallinfo internal_mallinfo(mstate m) {
 }
 #endif /* !NO_MALLINFO */
 
-static void internal_malloc_stats(mstate m) {
+static void internal_malloc_stats(mstate m, size_t *ret_maxfp, size_t *ret_fp,
+                                  size_t *ret_used) {
   if (!PREACTION(m)) {
     size_t maxfp = 0;
     size_t fp = 0;
@@ -1503,9 +1504,21 @@ static void internal_malloc_stats(mstate m) {
       }
     }
 
-    PRINT((m->user_data, "max system bytes = %10lu\n", (unsigned long)(maxfp)));
-    PRINT((m->user_data, "system bytes     = %10lu\n", (unsigned long)(fp)));
-    PRINT((m->user_data, "in use bytes     = %10lu\n", (unsigned long)(used)));
+    if (ret_maxfp || ret_fp || ret_used) {
+        if (ret_maxfp) {
+            *ret_maxfp = maxfp;
+        }
+        if (ret_fp) {
+            *ret_fp = fp;
+        }
+        if (ret_used) {
+            *ret_used = used;
+        }
+    } else {
+        PRINT((m->user_data, "max system bytes = %10lu\n", (unsigned long)(maxfp)));
+        PRINT((m->user_data, "system bytes     = %10lu\n", (unsigned long)(fp)));
+        PRINT((m->user_data, "in use bytes     = %10lu\n", (unsigned long)(used)));
+    }
 
     POSTACTION(m);
   }
@@ -2389,14 +2402,22 @@ void* mspace_memalign(mspace msp, size_t alignment, size_t bytes) {
   return internal_memalign(ms, alignment, bytes);
 }
 
-void mspace_malloc_stats(mspace msp) {
+void mspace_malloc_stats_return(mspace msp, size_t *ret_maxfp, size_t *ret_fp,
+                                size_t *ret_used)
+{
+
   mstate ms = (mstate)msp;
   if (ok_magic(ms)) {
-    internal_malloc_stats(ms);
+    internal_malloc_stats(ms, ret_maxfp, ret_fp, ret_used);
   }
   else {
     USAGE_ERROR_ACTION(ms,ms);
   }
+}
+
+
+void mspace_malloc_stats(mspace msp) {
+    mspace_malloc_stats_return(msp, NULL, NULL, NULL);
 }
 
 size_t mspace_footprint(mspace msp) {

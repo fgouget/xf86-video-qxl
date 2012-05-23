@@ -131,9 +131,12 @@ struct mallinfo mspace_mallinfo(mspace msp);
 
 /*
   mspace_malloc_stats behaves as malloc_stats, but reports
-  properties of the given space.
+  properties of the given space. The return variant returns instead of
+  printing the three quantities, maxfp, fp, and used.
 */
 void mspace_malloc_stats(mspace msp);
+void mspace_malloc_stats_return(mspace msp, size_t *ret_maxfp, size_t *ret_fp,
+                                size_t *ret_used);
 
 /*
   mspace_trim behaves as malloc_trim, but
