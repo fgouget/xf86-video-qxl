@@ -127,6 +127,12 @@ enum {
     OPTION_COUNT,
 };
 
+enum {
+    QXL_DEVICE_PRIMARY_UNDEFINED,
+    QXL_DEVICE_PRIMARY_NONE,
+    QXL_DEVICE_PRIMARY_CREATED,
+};
+
 struct _qxl_screen_t
 {
     /* These are the names QXL uses */
@@ -139,6 +145,8 @@ struct _qxl_screen_t
     struct qxl_ring *		command_ring;
     struct qxl_ring *		cursor_ring;
     struct qxl_ring *		release_ring;
+
+    int                         device_primary;
     
     int				num_modes;
     struct QXLMode *		modes;

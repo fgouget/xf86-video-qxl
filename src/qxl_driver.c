@@ -179,6 +179,7 @@ void qxl_create_primary(qxl_screen_t *qxl)
 #else
     ioport_write(qxl, QXL_IO_CREATE_PRIMARY, 0);
 #endif
+    qxl->device_primary = QXL_DEVICE_PRIMARY_CREATED;
 }
 
 void qxl_notify_oom(qxl_screen_t *qxl)
@@ -547,6 +548,7 @@ static void
 qxl_reset_and_create_mem_slots (qxl_screen_t *qxl)
 {
     ioport_write(qxl, QXL_IO_RESET, 0);
+    qxl->device_primary = QXL_DEVICE_PRIMARY_NONE;
     /* Mem slots */
     ErrorF ("slots start: %d, slots end: %d\n",
 	    qxl->rom->slots_start,
@@ -1237,6 +1239,7 @@ qxl_leave_vt(VT_FUNC_ARGS_DECL)
     ioport_write(qxl, QXL_IO_RESET, 0);
 
     qxl_restore_state(pScrn);
+    qxl->device_primary = QXL_DEVICE_PRIMARY_NONE;
 }
 
 static Bool
@@ -1450,6 +1453,7 @@ qxl_pre_init(ScrnInfoPtr pScrn, int flags)
 	pScrn->driverPrivate = xnfcalloc(sizeof(qxl_screen_t), 1);
     qxl = pScrn->driverPrivate;
     memset(qxl, 0, sizeof(qxl));
+    qxl->device_primary = QXL_DEVICE_PRIMARY_UNDEFINED;
 
     qxl->entity = xf86GetEntityInfo(pScrn->entityList[0]);
     
