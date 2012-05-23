@@ -636,7 +636,7 @@ qxl_surface_create (surface_cache_t *    cache,
     
     if ((bpp & 3) != 0)
     {
-	ErrorF ("   Bad bpp: %d (%d)\n", bpp, bpp & 7);
+	ErrorF ("%s: Bad bpp: %d (%d)\n", __FUNCTION__, bpp, bpp & 7);
 	return NULL;
     }
 
@@ -654,13 +654,13 @@ qxl_surface_create (surface_cache_t *    cache,
     
     if (bpp != 8 && bpp != 16 && bpp != 32 && bpp != 24)
     {
-	ErrorF ("   Unknown bpp\n");
+	ErrorF ("%s: Unknown bpp\n", __FUNCTION__);
 	return NULL;
     }
 
     if (width == 0 || height == 0)
     {
-	ErrorF ("   Zero width or height\n");
+	ErrorF ("%s: Zero width or height\n", __FUNCTION__);
 	return NULL;
     }
 
