@@ -638,6 +638,12 @@ qxl_close_screen(CLOSE_SCREEN_ARGS_DECL)
     qxl_screen_t *qxl = pScrn->driverPrivate;
     Bool result;
     
+    ErrorF ("Disabling FB access for %d\n", pScrn->scrnIndex);
+#ifndef XF86_SCRN_INTERFACE
+    pScrn->EnableDisableFBAccess (scrnIndex, FALSE);
+#else
+    pScrn->EnableDisableFBAccess (pScrn, FALSE);
+#endif
     ErrorF ("Freeing %p\n", qxl->fb);
     free(qxl->fb);
     qxl->fb = NULL;
