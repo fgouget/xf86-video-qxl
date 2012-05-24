@@ -552,7 +552,7 @@ surface_send_create (surface_cache_t *cache,
     /* the final + stride is to work around a bug where the device apparently 
      * scribbles after the end of the image
      */
-    qxl_garbage_collect (cache->qxl);
+    qxl_garbage_collect (qxl);
 retry2:
     address = qxl_alloc (qxl->surf_mem, stride * height + stride);
 
