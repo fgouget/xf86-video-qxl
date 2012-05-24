@@ -898,6 +898,16 @@ qxl_surface_flush (qxl_surface_t *surface)
 
 /* access */
 static void
+download_box_no_update (qxl_surface_t *surface, int x1, int y1, int x2, int y2)
+{
+    pixman_image_composite (PIXMAN_OP_SRC,
+                            surface->dev_image,
+                            NULL,
+                            surface->host_image,
+                            x1, y1, 0, 0, x1, y1, x2 - x1, y2 - y1);
+}
+
+static void
 download_box (qxl_surface_t *surface, int x1, int y1, int x2, int y2)
 {
     struct QXLRam *ram_header = get_ram_header (surface->cache->qxl);
@@ -911,11 +921,7 @@ download_box (qxl_surface_t *surface, int x1, int y1, int x2, int y2)
 
     qxl_update_area(surface->cache->qxl);
 
-    pixman_image_composite (PIXMAN_OP_SRC,
-     			    surface->dev_image,
-			    NULL,
-			    surface->host_image,
-			    x1, y1, 0, 0, x1, y1, x2 - x1, y2 - y1);
+    download_box_no_update(surface, x1, y1, x2, y2);
 }
 
 Bool
