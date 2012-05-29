@@ -182,6 +182,23 @@ void qxl_io_create_primary(qxl_screen_t *qxl)
     qxl->device_primary = QXL_DEVICE_PRIMARY_CREATED;
 }
 
+void qxl_io_destroy_primary(qxl_screen_t *qxl)
+{
+#ifndef XSPICE
+    if (qxl->pci->revision >= 3)
+    {
+        ioport_write(qxl, QXL_IO_DESTROY_PRIMARY_ASYNC, 0);
+        qxl_wait_for_io_command(qxl);
+    } else
+    {
+        ioport_write(qxl, QXL_IO_DESTROY_PRIMARY, 0);
+    }
+#else
+    ioport_write(qxl, QXL_IO_DESTROY_PRIMARY, 0);
+#endif
+    qxl->device_primary = QXL_DEVICE_PRIMARY_NONE;
+}
+
 void qxl_io_notify_oom(qxl_screen_t *qxl)
 {
     ioport_write(qxl, QXL_IO_NOTIFY_OOM, 0);
