@@ -525,7 +525,7 @@ setup_slot(qxl_screen_t *qxl, uint8_t slot_index_offset,
 }
 
 static void
-qxl_reset (qxl_screen_t *qxl)
+qxl_reset_and_create_mem_slots (qxl_screen_t *qxl)
 {
     ioport_write(qxl, QXL_IO_RESET, 0);
     /* Mem slots */
@@ -583,7 +583,7 @@ qxl_close_screen(CLOSE_SCREEN_ARGS_DECL)
 
 #ifndef XSPICE
     if (!xf86IsPrimaryPci (qxl->pci) && qxl->primary)
-       qxl_reset (qxl);
+       qxl_reset_and_create_mem_slots (qxl);
 #endif
     
     if (pScrn->vtSema)
@@ -639,7 +639,7 @@ qxl_switch_mode(SWITCH_MODE_ARGS_DECL)
 	qxl_surface_cache_sanity_check (qxl->surface_cache);
     }
 	
-    qxl_reset (qxl);
+    qxl_reset_and_create_mem_slots (qxl);
     
     ErrorF ("done reset\n");
 
@@ -1120,7 +1120,7 @@ qxl_screen_init(SCREEN_INIT_ARGS_DECL)
     qxl->uxa = uxa_driver_alloc ();
     
     /* Set up resources */
-    qxl_reset (qxl);
+    qxl_reset_and_create_mem_slots (qxl);
     ErrorF ("done reset\n");
 
 #ifndef XSPICE
