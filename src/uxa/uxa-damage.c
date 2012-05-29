@@ -30,7 +30,6 @@
 #include    <X11/X.h>
 #include    "scrnintstr.h"
 #include    "windowstr.h"
-#include    <X11/fonts/font.h>
 #include    "dixfontstr.h"
 #include    "gcstruct.h"
 #include    "picturestr.h"
