@@ -1215,7 +1215,7 @@ qxl_leave_vt(VT_FUNC_ARGS_DECL)
 
     qxl->vt_surfaces = qxl_surface_cache_evacuate_all (qxl->surface_cache);
 
-    outb(qxl->io_base + QXL_IO_RESET, 0);
+    ioport_write(qxl, QXL_IO_RESET, 0);
 
     qxl_restore_state(pScrn);
 }
