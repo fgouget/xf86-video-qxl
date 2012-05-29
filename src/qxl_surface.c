@@ -871,7 +871,12 @@ qxl_surface_kill (qxl_surface_t *surface)
 
     unlink_surface (surface);
 
+    if (!surface->cache->all_surfaces) {
+        return;
+    }
+
     if (surface->id != 0					&&
+        surface->host_image                                     &&
 	pixman_image_get_width (surface->host_image) >= 128	&&
 	pixman_image_get_height (surface->host_image) >= 128)
     {
