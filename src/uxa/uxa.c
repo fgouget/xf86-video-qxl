@@ -35,8 +35,6 @@
 #include <stdlib.h>
 
 #include "uxa-priv.h"
-#include <X11/fonts/fontstruct.h>
-#include "dixfontstr.h"
 #include "uxa.h"
 
 #if HAS_DEVPRIVATEKEYREC
