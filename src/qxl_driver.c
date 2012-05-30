@@ -38,6 +38,9 @@
 #include <errno.h>
 #include <time.h>
 #include <stdlib.h>
+
+#include <xf86Crtc.h>
+
 #include "qxl.h"
 #include "assert.h"
 #include "qxl_option_helpers.h"
@@ -1198,6 +1201,8 @@ qxl_leave_vt(VT_FUNC_ARGS_DECL)
     SCRN_INFO_PTR(arg);
     qxl_screen_t *qxl = pScrn->driverPrivate;
     
+    xf86_hide_cursors (pScrn);
+
     pScrn->EnableDisableFBAccess (XF86_SCRN_ARG(pScrn), FALSE);
 
     qxl->vt_surfaces = qxl_surface_cache_evacuate_all (qxl->surface_cache);
@@ -1386,6 +1391,10 @@ static void qxl_add_mode(ScrnInfoPtr pScrn, int width, int height, int type)
     xf86ModesAdd(pScrn->monitor->Modes, mode);
 }
 
+static const xf86CrtcConfigFuncsRec qxl_xf86crtc_config_funcs = {
+        NULL
+};
+
 static Bool
 qxl_pre_init(ScrnInfoPtr pScrn, int flags)
 {
@@ -1518,7 +1527,10 @@ qxl_pre_init(ScrnInfoPtr pScrn, int flags)
     
     CHECK_POINT();
     
+    xf86CrtcConfigInit(pScrn, &qxl_xf86crtc_config_funcs);
+
     xf86PruneDriverModes(pScrn);
+
     pScrn->currentMode = pScrn->modes;
     /* If no modes are specified in xorg.conf, default to 1024x768 */
     if (pScrn->display->modes == NULL || pScrn->display->modes[0] == NULL)
