@@ -76,7 +76,9 @@ struct qxl_surface_t
     int			ref_count;
 
     PixmapPtr		pixmap;
-    
+
+    struct evacuated_surface_t *evacuated;
+
     union
     {
 	qxl_surface_t *copy_src;
@@ -90,6 +92,7 @@ struct evacuated_surface_t
     PixmapPtr		 pixmap;
     int			 bpp;
 
+    evacuated_surface_t *prev;
     evacuated_surface_t *next;
 };
 
@@ -125,9 +128,15 @@ surface_cache_init (surface_cache_t *cache, qxl_screen_t *qxl)
     int n_surfaces = qxl->rom->n_surfaces;
     int i;
 
-    cache->all_surfaces = calloc (n_surfaces, sizeof (qxl_surface_t));
     if (!cache->all_surfaces)
-	return FALSE;
+    {
+        /* all_surfaces is not freed when evacuating, since surfaces are still
+         * tied to pixmaps that may be destroyed after evacuation before
+         * recreation */
+        cache->all_surfaces = calloc (n_surfaces, sizeof (qxl_surface_t));
+        if (!cache->all_surfaces)
+            return FALSE;
+    }
 
     memset (cache->all_surfaces, 0, n_surfaces * sizeof (qxl_surface_t));
     memset (cache->cached_surfaces, 0, N_CACHED_SURFACES * sizeof (qxl_surface_t *));
@@ -141,6 +150,7 @@ surface_cache_init (surface_cache_t *cache, qxl_screen_t *qxl)
 	cache->all_surfaces[i].cache = cache;
 	cache->all_surfaces[i].dev_image = NULL;
 	cache->all_surfaces[i].host_image = NULL;
+	cache->all_surfaces[i].evacuated = NULL;
 	
 	REGION_INIT (
 	    NULL, &(cache->all_surfaces[i].access_region), (BoxPtr)NULL, 0);
@@ -165,6 +175,7 @@ qxl_surface_cache_create (qxl_screen_t *qxl)
     if (!cache)
 	return NULL;
 
+    memset(cache, 0, sizeof(*cache));
     cache->qxl = qxl;
     if (!surface_cache_init (cache, qxl))
     {
@@ -344,6 +355,7 @@ qxl_surface_cache_create_primary (surface_cache_t	*cache,
     surface->bpp = mode->bits;
     surface->next = NULL;
     surface->prev = NULL;
+    surface->evacuated = NULL;
     
     REGION_INIT (NULL, &(surface->access_region), (BoxPtr)NULL, 0);
     surface->access_type = UXA_ACCESS_RO;
@@ -790,6 +802,24 @@ qxl_surface_unref (surface_cache_t *cache, uint32_t id)
 void
 qxl_surface_kill (qxl_surface_t *surface)
 {
+    struct evacuated_surface_t *ev = surface->evacuated;
+
+    if (ev)
+    {
+        /* server side surface is already destroyed (via reset), don't
+         * resend a destroy. Just mark surface as not to be recreated */
+        ev->pixmap = NULL;
+        if (ev->image)
+            pixman_image_unref (ev->image);
+        if (ev->next)
+            ev->next->prev = ev->prev;
+        if (ev->prev)
+            ev->prev->next = ev->next;
+        free(ev);
+        surface->evacuated = NULL;
+        return;
+    }
+
     unlink_surface (surface);
 
     if (surface->id != 0					&&
@@ -1041,16 +1071,17 @@ qxl_surface_cache_evacuate_all (surface_cache_t *cache)
 	unlink_surface (s);
 	
 	evacuated->next = evacuated_surfaces;
+        if (evacuated_surfaces)
+            evacuated_surfaces->prev = evacuated;
 	evacuated_surfaces = evacuated;
+        s->evacuated = evacuated;
 
 	s = next;
     }
 
-    free (cache->all_surfaces);
-    cache->all_surfaces = NULL;
     cache->live_surfaces = NULL;
     cache->free_surfaces = NULL;
-    
+
     return evacuated_surfaces;
 }
 
