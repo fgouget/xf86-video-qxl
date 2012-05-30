@@ -696,19 +696,14 @@ qxl_switch_mode(SWITCH_MODE_ARGS_DECL)
     int mode_index = (int)(unsigned long)mode->Private;
     struct QXLMode *m = qxl->modes + mode_index;
     ScreenPtr pScreen;
-    void *evacuated;
-
-    evacuated = qxl_surface_cache_evacuate_all (qxl->surface_cache);
 
     if (qxl->primary)
     {
 	qxl_surface_kill (qxl->primary);
 	qxl_surface_cache_sanity_check (qxl->surface_cache);
     }
-	
-    qxl_reset_and_create_mem_slots (qxl);
-    
-    ErrorF ("done reset\n");
+
+    qxl_io_destroy_primary(qxl);
 
     qxl->primary = qxl_surface_cache_create_primary (qxl->surface_cache, m);
     qxl->current_mode = m;
@@ -725,19 +720,7 @@ qxl_switch_mode(SWITCH_MODE_ARGS_DECL)
 	
 	set_surface (root, qxl->primary);
     }
-    
-    ErrorF ("primary is %p\n", qxl->primary);
-    if (qxl->mem)
-    {
-       qxl_mem_free_all (qxl->mem);
-       qxl_drop_image_cache (qxl);
-    }
 
-    if (qxl->surf_mem)
-	qxl_mem_free_all (qxl->surf_mem);
-
-    qxl_surface_cache_replace_all (qxl->surface_cache, evacuated);
-    
     return TRUE;
 }
 
@@ -1256,7 +1239,19 @@ qxl_enter_vt(VT_FUNC_ARGS_DECL)
     qxl_screen_t *qxl = pScrn->driverPrivate;
 
     qxl_save_state(pScrn);
+
+    qxl_reset_and_create_mem_slots (qxl);
+
     qxl_switch_mode(SWITCH_MODE_ARGS(pScrn, pScrn->currentMode));
+
+    if (qxl->mem)
+    {
+       qxl_mem_free_all (qxl->mem);
+       qxl_drop_image_cache (qxl);
+    }
+
+    if (qxl->surf_mem)
+       qxl_mem_free_all (qxl->surf_mem);
 
     if (qxl->vt_surfaces)
     {
