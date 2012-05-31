@@ -49,6 +49,12 @@
 
 #include "qxl.h"
 
+#ifdef DEBUG_SURFACE_LIFECYCLE
+#include <stdio.h>
+
+static FILE* surface_log;
+#endif
+
 typedef struct evacuated_surface_t evacuated_surface_t;
 
 struct qxl_surface_t
@@ -121,6 +127,44 @@ struct surface_cache_t
      */
     qxl_surface_t *cached_surfaces[N_CACHED_SURFACES];
 };
+
+#ifdef DEBUG_SURFACE_LIFECYCLE
+static void debug_surface_open(void)
+{
+    if (surface_log)
+        return;
+    surface_log = fopen("/tmp/xf86-video-qxl.surface.log", "w+");
+    if (!surface_log)
+    {
+        fprintf(stderr, "error creating surface log file (DEBUG_SURFACE_LIFECYCLE)\n");
+        exit(-1);
+    }
+}
+
+static int surface_count(qxl_surface_t *surface)
+{
+    int i;
+
+    for (i = 0; surface ;++i, surface = surface->next);
+    return i;
+}
+
+static void debug_surface_log(surface_cache_t *cache)
+{
+    int  live_n, free_n;
+
+    debug_surface_open();
+    live_n = surface_count(cache->live_surfaces);
+    free_n = surface_count(cache->free_surfaces);
+    fprintf(surface_log, "live,free,sum = %d, %d, %d\n", live_n, free_n,
+            live_n + free_n);
+    fflush(surface_log);
+}
+
+#else
+#define debug_surface_log(cache)
+#endif
+
 
 static Bool
 surface_cache_init (surface_cache_t *cache, qxl_screen_t *qxl)
@@ -692,6 +736,8 @@ unlink_surface (qxl_surface_t *surface)
 	surface->prev->next = surface->next;
     else
 	surface->cache->live_surfaces = surface->next;
+
+    debug_surface_log(surface->cache);
     
     if (surface->next)
 	surface->next->prev = surface->prev;
