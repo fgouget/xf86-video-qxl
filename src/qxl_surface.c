@@ -732,10 +732,13 @@ qxl_surface_set_pixmap (qxl_surface_t *surface, PixmapPtr pixmap)
 static void
 unlink_surface (qxl_surface_t *surface)
 {
-    if (surface->prev)
-	surface->prev->next = surface->next;
-    else
-	surface->cache->live_surfaces = surface->next;
+    if (surface->id != 0)
+    {
+        if (surface->prev)
+            surface->prev->next = surface->next;
+        else
+            surface->cache->live_surfaces = surface->next;
+    }
 
     debug_surface_log(surface->cache);
     
