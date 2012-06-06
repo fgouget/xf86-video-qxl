@@ -47,7 +47,8 @@ qxl_drv_la_SOURCES =				\
 	mspace.h				\
 	murmurhash3.c				\
 	murmurhash3.h				\
-	qxl_cursor.c
+	qxl_cursor.c				\
+	compat-api.h
 endif
 
 if BUILD_XSPICE

@@ -50,6 +50,7 @@
 #include "vgaHW.h"
 #endif /* XSPICE */
 
+#include "compat-api.h"
 #define hidden _X_HIDDEN
 
 #ifdef XSPICE

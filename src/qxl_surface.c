@@ -842,7 +842,7 @@ qxl_surface_prepare_access (qxl_surface_t  *surface,
     int n_boxes;
     BoxPtr boxes;
     ScreenPtr pScreen = pixmap->drawable.pScreen;
-    ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
+    ScrnInfoPtr pScrn = xf86ScreenToScrn(pScreen);
     RegionRec new;
 
     if (!pScrn->vtSema)

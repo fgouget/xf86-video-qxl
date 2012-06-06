@@ -221,7 +221,7 @@ uxa_glyph_cache_upload_glyph(ScreenPtr screen,
 			     GlyphPtr glyph,
 			     int x, int y)
 {
-	PicturePtr pGlyphPicture = GlyphPicture(glyph)[screen->myNum];
+	PicturePtr pGlyphPicture = GetGlyphPicture(glyph, screen);
 	PixmapPtr pGlyphPixmap = (PixmapPtr) pGlyphPicture->pDrawable;
 	PixmapPtr pCachePixmap = (PixmapPtr) cache->picture->pDrawable;
 	PixmapPtr scratch;
@@ -430,7 +430,7 @@ uxa_check_glyphs(CARD8 op,
 		 INT16 xSrc,
 		 INT16 ySrc, int nlist, GlyphListPtr list, GlyphPtr * glyphs)
 {
-	int screen = dst->pDrawable->pScreen->myNum;
+	ScreenPtr pScreen = dst->pDrawable->pScreen;
 	pixman_image_t *image;
 	PixmapPtr scratch;
 	PicturePtr mask;
@@ -494,7 +494,7 @@ uxa_check_glyphs(CARD8 op,
 		n = list->len;
 		while (n--) {
 			GlyphPtr glyph = *glyphs++;
-			PicturePtr g = GlyphPicture(glyph)[screen];
+			PicturePtr g = GetGlyphPicture(glyph, pScreen);
 			if (g) {
 				if (maskFormat) {
 					CompositePicture(PictOpAdd, g, NULL, mask,
@@ -560,7 +560,7 @@ static PicturePtr
 uxa_glyph_cache(ScreenPtr screen, GlyphPtr glyph, int *out_x, int *out_y)
 {
 	uxa_screen_t *uxa_screen = uxa_get_screen(screen);
-	PicturePtr glyph_picture = GlyphPicture(glyph)[screen->myNum];
+	PicturePtr glyph_picture = GetGlyphPicture(glyph, screen);
 	uxa_glyph_cache_t *cache = &uxa_screen->glyphCaches[PICT_FORMAT_RGB(glyph_picture->format) != 0];
 	struct uxa_glyph *priv = NULL;
 	int size, mask, pos, s;
@@ -760,7 +760,7 @@ uxa_glyphs_to_dst(CARD8 op,
 				this_atlas = uxa_glyph_cache(screen, glyph, &mask_x, &mask_y);
 				if (this_atlas == NULL) {
 					/* no cache for this glyph */
-					this_atlas = GlyphPicture(glyph)[screen->myNum];
+					this_atlas = GetGlyphPicture(glyph, screen);
 					mask_x = mask_y = 0;
 				}
 			}
@@ -970,7 +970,7 @@ uxa_glyphs_via_mask(CARD8 op,
 				this_atlas = uxa_glyph_cache(screen, glyph, &src_x, &src_y);
 				if (this_atlas == NULL) {
 					/* no cache for this glyph */
-					this_atlas = GlyphPicture(glyph)[screen->myNum];
+					this_atlas = GetGlyphPicture(glyph, screen);
 					src_x = src_y = 0;
 				}
 			}

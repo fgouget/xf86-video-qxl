@@ -328,7 +328,7 @@ qxl_blank_screen(ScreenPtr pScreen, int mode)
 
 #ifdef XSPICE
 static void
-unmap_memory_helper(qxl_screen_t *qxl, int scrnIndex)
+unmap_memory_helper(qxl_screen_t *qxl)
 {
     free(qxl->ram);
     free(qxl->vram);
@@ -336,7 +336,7 @@ unmap_memory_helper(qxl_screen_t *qxl, int scrnIndex)
 }
 
 static void
-map_memory_helper(qxl_screen_t *qxl, int scrnIndex)
+map_memory_helper(qxl_screen_t *qxl)
 {
     qxl->ram = malloc(RAM_SIZE);
     qxl->ram_physical = qxl->ram;
@@ -349,7 +349,7 @@ map_memory_helper(qxl_screen_t *qxl, int scrnIndex)
 }
 #else /* Default */
 static void
-unmap_memory_helper(qxl_screen_t *qxl, int scrnIndex)
+unmap_memory_helper(qxl_screen_t *qxl)
 {
 #ifdef XSERVER_LIBPCIACCESS
     if (qxl->ram)
@@ -369,7 +369,7 @@ unmap_memory_helper(qxl_screen_t *qxl, int scrnIndex)
 }
 
 static void
-map_memory_helper(qxl_screen_t *qxl, int scrnIndex)
+map_memory_helper(qxl_screen_t *qxl)
 {
 #ifdef XSERVER_LIBPCIACCESS
     pci_device_map_range(qxl->pci, qxl->pci->regions[0].base_addr,
@@ -412,7 +412,7 @@ map_memory_helper(qxl_screen_t *qxl, int scrnIndex)
 #endif /* XSPICE */
 
 static void
-qxl_unmap_memory(qxl_screen_t *qxl, int scrnIndex)
+qxl_unmap_memory(qxl_screen_t *qxl)
 {
 #ifdef XSPICE
     if (qxl->worker) {
@@ -420,7 +420,7 @@ qxl_unmap_memory(qxl_screen_t *qxl, int scrnIndex)
         qxl->worker_running = FALSE;
     }
 #endif
-    unmap_memory_helper(qxl, scrnIndex);
+    unmap_memory_helper(qxl);
     qxl->ram = qxl->ram_physical = qxl->vram = qxl->rom = NULL;
 
     qxl->num_modes = 0;
@@ -430,7 +430,7 @@ qxl_unmap_memory(qxl_screen_t *qxl, int scrnIndex)
 static Bool
 qxl_map_memory(qxl_screen_t *qxl, int scrnIndex)
 {
-    map_memory_helper(qxl, scrnIndex);
+    map_memory_helper(qxl);
 
     if (!qxl->ram || !qxl->vram || !qxl->rom)
 	return FALSE;
@@ -556,9 +556,9 @@ qxl_reset (qxl_screen_t *qxl)
 }
 
 static Bool
-qxl_close_screen(int scrnIndex, ScreenPtr pScreen)
+qxl_close_screen(CLOSE_SCREEN_ARGS_DECL)
 {
-    ScrnInfoPtr pScrn = xf86Screens[scrnIndex];
+    ScrnInfoPtr pScrn = xf86ScreenToScrn(pScreen);
     qxl_screen_t *qxl = pScrn->driverPrivate;
     Bool result;
     
@@ -569,7 +569,7 @@ qxl_close_screen(int scrnIndex, ScreenPtr pScreen)
     pScreen->CreateScreenResources = qxl->create_screen_resources;
     pScreen->CloseScreen = qxl->close_screen;
     
-    result = pScreen->CloseScreen(scrnIndex, pScreen);
+    result = pScreen->CloseScreen(CLOSE_SCREEN_ARGS);
 
 #ifndef XSPICE
     if (!xf86IsPrimaryPci (qxl->pci) && qxl->primary)
@@ -579,7 +579,7 @@ qxl_close_screen(int scrnIndex, ScreenPtr pScreen)
     if (pScrn->vtSema)
     {
         qxl_restore_state(pScrn);
-	qxl_unmap_memory(qxl, scrnIndex);
+	qxl_unmap_memory(qxl);
     }
     pScrn->vtSema = FALSE;
 
@@ -589,7 +589,7 @@ qxl_close_screen(int scrnIndex, ScreenPtr pScreen)
 static void
 set_screen_pixmap_header (ScreenPtr pScreen)
 {
-    ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
+    ScrnInfoPtr pScrn = xf86ScreenToScrn(pScreen);
     qxl_screen_t *qxl = pScrn->driverPrivate;
     PixmapPtr pPixmap = pScreen->GetScreenPixmap(pScreen);
     
@@ -611,10 +611,11 @@ set_screen_pixmap_header (ScreenPtr pScreen)
 }
 
 static Bool
-qxl_switch_mode(int scrnIndex, DisplayModePtr p, int flags)
+qxl_switch_mode(SWITCH_MODE_ARGS_DECL)
 {
-    qxl_screen_t *qxl = xf86Screens[scrnIndex]->driverPrivate;
-    int mode_index = (int)(unsigned long)p->Private;
+    SCRN_INFO_PTR(arg);
+    qxl_screen_t *qxl = pScrn->driverPrivate;
+    int mode_index = (int)(unsigned long)mode->Private;
     struct QXLMode *m = qxl->modes + mode_index;
     ScreenPtr pScreen;
     void *evacuated;
@@ -680,7 +681,7 @@ enum ROPDescriptor
 static Bool
 qxl_create_screen_resources(ScreenPtr pScreen)
 {
-    ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
+    ScrnInfoPtr pScrn = xf86ScreenToScrn(pScreen);
     qxl_screen_t *qxl = pScrn->driverPrivate;
     Bool ret;
     PixmapPtr pPixmap;
@@ -848,7 +849,7 @@ qxl_set_screen_pixmap (PixmapPtr pixmap)
 static PixmapPtr
 qxl_create_pixmap (ScreenPtr screen, int w, int h, int depth, unsigned usage)
 {
-    ScrnInfoPtr scrn = xf86Screens[screen->myNum];
+    ScrnInfoPtr scrn = xf86ScreenToScrn(screen);
     PixmapPtr pixmap;
     qxl_screen_t *qxl = scrn->driverPrivate;
     qxl_surface_t *surface;
@@ -906,7 +907,7 @@ static Bool
 qxl_destroy_pixmap (PixmapPtr pixmap)
 {
     ScreenPtr screen = pixmap->drawable.pScreen;
-    ScrnInfoPtr scrn = xf86Screens[screen->myNum];
+    ScrnInfoPtr scrn = xf86ScreenToScrn(screen);
     qxl_screen_t *qxl = scrn->driverPrivate;
     qxl_surface_t *surface = NULL;
 
@@ -936,7 +937,7 @@ qxl_destroy_pixmap (PixmapPtr pixmap)
 static Bool
 setup_uxa (qxl_screen_t *qxl, ScreenPtr screen)
 {
-    ScrnInfoPtr scrn = xf86Screens[screen->myNum];
+    ScrnInfoPtr scrn = xf86ScreenToScrn(screen);
 #if HAS_DIXREGISTERPRIVATEKEY
     if (!dixRegisterPrivateKey(&uxa_pixmap_index, PRIVATE_PIXMAP, 0))
 	return FALSE;
@@ -1030,9 +1031,9 @@ spiceqxl_screen_init(int scrnIndex, ScrnInfoPtr pScrn, qxl_screen_t *qxl)
 #endif
 
 static Bool
-qxl_screen_init(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
+qxl_screen_init(SCREEN_INIT_ARGS_DECL)
 {
-    ScrnInfoPtr pScrn = xf86Screens[scrnIndex];
+    ScrnInfoPtr pScrn = xf86ScreenToScrn(pScreen);
     qxl_screen_t *qxl = pScrn->driverPrivate;
     struct QXLRam *ram_header;
     VisualPtr visual;
@@ -1041,7 +1042,7 @@ qxl_screen_init(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 
     qxl->pScrn = pScrn;
 
-    if (!qxl_map_memory(qxl, scrnIndex))
+    if (!qxl_map_memory(qxl, pScrn->scrnIndex))
 	return FALSE;
 
 #ifdef XSPICE
@@ -1160,7 +1161,7 @@ qxl_screen_init(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     pScreen->width = pScrn->currentMode->HDisplay;
     pScreen->height = pScrn->currentMode->VDisplay;
     
-    qxl_switch_mode(scrnIndex, pScrn->currentMode, 0);
+    qxl_switch_mode(SWITCH_MODE_ARGS(pScrn, pScrn->currentMode));
     
     CHECK_POINT();
 
@@ -1171,13 +1172,13 @@ out:
 }
 
 static Bool
-qxl_enter_vt(int scrnIndex, int flags)
+qxl_enter_vt(VT_FUNC_ARGS_DECL)
 {
-    ScrnInfoPtr pScrn = xf86Screens[scrnIndex];
+    SCRN_INFO_PTR(arg);
     qxl_screen_t *qxl = pScrn->driverPrivate;
 
     qxl_save_state(pScrn);
-    qxl_switch_mode(scrnIndex, pScrn->currentMode, 0);
+    qxl_switch_mode(SWITCH_MODE_ARGS(pScrn, pScrn->currentMode));
 
     if (qxl->vt_surfaces)
     {
@@ -1186,18 +1187,18 @@ qxl_enter_vt(int scrnIndex, int flags)
 	qxl->vt_surfaces = NULL;
     }
 
-    pScrn->EnableDisableFBAccess (scrnIndex, TRUE);
+    pScrn->EnableDisableFBAccess (XF86_SCRN_ARG(pScrn), TRUE);
     
     return TRUE;
 }
 
 static void
-qxl_leave_vt(int scrnIndex, int flags)
+qxl_leave_vt(VT_FUNC_ARGS_DECL)
 {
-    ScrnInfoPtr pScrn = xf86Screens[scrnIndex];
+    SCRN_INFO_PTR(arg);
     qxl_screen_t *qxl = pScrn->driverPrivate;
     
-    pScrn->EnableDisableFBAccess (scrnIndex, FALSE);
+    pScrn->EnableDisableFBAccess (XF86_SCRN_ARG(pScrn), FALSE);
 
     qxl->vt_surfaces = qxl_surface_cache_evacuate_all (qxl->surface_cache);
 
@@ -1327,9 +1328,9 @@ qxl_find_native_mode(ScrnInfoPtr pScrn, DisplayModePtr p)
 }
 
 static ModeStatus
-qxl_valid_mode(int scrn, DisplayModePtr p, Bool flag, int pass)
+qxl_valid_mode(SCRN_ARG_TYPE arg, DisplayModePtr p, Bool flag, int pass)
 {
-    ScrnInfoPtr pScrn = xf86Screens[scrn];
+    SCRN_INFO_PTR(arg);
     int scrnIndex = pScrn->scrnIndex;
     qxl_screen_t *qxl = pScrn->driverPrivate;
     int bpp = pScrn->bitsPerPixel;
@@ -1550,7 +1551,7 @@ qxl_pre_init(ScrnInfoPtr pScrn, int flags)
 #endif
 
     /* hate */
-    qxl_unmap_memory(qxl, scrnIndex);
+    qxl_unmap_memory(qxl);
     
     CHECK_POINT();
     
