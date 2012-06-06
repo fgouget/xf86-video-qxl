@@ -1011,7 +1011,7 @@ setup_uxa (qxl_screen_t *qxl, ScreenPtr screen)
 #ifdef XSPICE
 
 static void
-spiceqxl_screen_init(int scrnIndex, ScrnInfoPtr pScrn, qxl_screen_t *qxl)
+spiceqxl_screen_init(ScrnInfoPtr pScrn, qxl_screen_t *qxl)
 {
     SpiceCoreInterface *core;
 
@@ -1046,7 +1046,7 @@ qxl_screen_init(SCREEN_INIT_ARGS_DECL)
 	return FALSE;
 
 #ifdef XSPICE
-    spiceqxl_screen_init(scrnIndex, pScrn, qxl);
+    spiceqxl_screen_init(pScrn, qxl);
 #endif
     ram_header = (void *)((unsigned long)qxl->ram + (unsigned long)qxl->rom->ram_header_offset);
     
