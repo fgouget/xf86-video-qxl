@@ -1125,7 +1125,6 @@ qxl_screen_init(SCREEN_INIT_ARGS_DECL)
     
     qxl->virtual_x = pScrn->virtualX;
     qxl->virtual_y = pScrn->virtualY;
-    qxl->stride = pScrn->virtualX * 4;
     
     pScrn->displayWidth = pScrn->virtualX;
     

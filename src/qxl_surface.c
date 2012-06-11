@@ -389,7 +389,7 @@ qxl_surface_cache_create_primary (surface_cache_t	*cache,
 
     host_image = pixman_image_create_bits (format, 
 					   qxl->virtual_x, qxl->virtual_y,
-					   qxl->fb, qxl->stride);
+					   qxl->fb, mode->stride);
 
     surface = malloc (sizeof *surface);
     surface->id = 0;

@@ -158,7 +158,6 @@ struct _qxl_screen_t
     int				virtual_x;
     int				virtual_y;
     void *			fb;
-    int				stride;
     struct QXLMode *		current_mode;
     qxl_surface_t *		primary;
     
