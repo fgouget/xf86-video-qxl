@@ -1138,8 +1138,6 @@ qxl_screen_init(SCREEN_INIT_ARGS_DECL)
     ErrorF ("allocated %d x %d  %p\n", pScrn->virtualX, pScrn->virtualY, qxl->fb);
 #endif
     
-    pScreen->totalPixmapSize = 100;
-
     pScrn->virtualX = pScrn->currentMode->HDisplay;
     pScrn->virtualY = pScrn->currentMode->VDisplay;
 
@@ -1198,6 +1196,10 @@ qxl_screen_init(SCREEN_INIT_ARGS_DECL)
 
     DamageSetup(pScreen);
     
+    /* We need to set totalPixmapSize after setup_uxa and Damage,
+	as the privatessize is not computed correctly until then */
+    pScreen->totalPixmapSize = BitmapBytePad((sizeof(PixmapRec) + dixPrivatesSize(PRIVATE_PIXMAP) ) * 8);
+
     miDCInitialize(pScreen, xf86GetPointerScreenFuncs());
     if (!miCreateDefColormap(pScreen))
       goto out;
