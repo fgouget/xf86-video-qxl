@@ -327,6 +327,10 @@ Bool              qxl_ring_pop         (struct qxl_ring        *ring,
 					void                   *element);
 void              qxl_ring_wait_idle   (struct qxl_ring        *ring);
 
+void              qxl_ring_request_notify (struct qxl_ring *ring);
+
+int               qxl_ring_prod        (struct qxl_ring        *ring);
+int               qxl_ring_cons        (struct qxl_ring        *ring);
 
 /*
  * Surface
