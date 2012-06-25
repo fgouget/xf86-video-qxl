@@ -156,6 +156,7 @@ struct _qxl_screen_t
     void *			surface0_area;
     long			surface0_size;
     long			vram_size;
+    long			ram_size;
 
     DisplayModePtr              x_modes;
 

@@ -140,6 +140,19 @@ static void qxl_wait_for_io_command(qxl_screen_t *qxl)
     }
     ram_header->int_pending &= ~QXL_INTERRUPT_IO_CMD;
 }
+
+#if 0
+static void qxl_wait_for_display_interrupt(qxl_screen_t *qxl)
+{
+    struct QXLRam *ram_header = (void *)(
+        (unsigned long)qxl->ram + qxl->rom->ram_header_offset);
+
+    while (!(ram_header->int_pending & QXL_INTERRUPT_DISPLAY)) {
+        usleep(1);
+    }
+    ram_header->int_pending &= ~QXL_INTERRUPT_DISPLAY;
+}
+#endif
 #endif
 
 void qxl_update_area(qxl_screen_t *qxl)
@@ -209,6 +222,7 @@ void qxl_io_notify_oom(qxl_screen_t *qxl)
 
 void qxl_io_flush_surfaces(qxl_screen_t *qxl)
 {
+    // FIXME: write individual update_area for revision < V10
 #ifndef XSPICE
     ioport_write(qxl, QXL_IO_FLUSH_SURFACES_ASYNC, 0);
     qxl_wait_for_io_command(qxl);
@@ -216,6 +230,34 @@ void qxl_io_flush_surfaces(qxl_screen_t *qxl)
     ioport_write(qxl, QXL_IO_FLUSH_SURFACES_ASYNC, 0);
 #endif
 }
+
+static void
+qxl_usleep (int useconds)
+{
+    struct timespec t;
+
+    t.tv_sec = useconds / 1000000;
+    t.tv_nsec = (useconds - (t.tv_sec * 1000000)) * 1000;
+
+    errno = 0;
+    while (nanosleep (&t, &t) == -1 && errno == EINTR)
+	;
+}
+
+#ifdef QXLDRV_RESIZABLE_SURFACE0
+static void qxl_io_flush_release(qxl_screen_t *qxl)
+{
+#ifndef XSPICE
+    int sum = 0;
+
+    sum += qxl_garbage_collect (qxl);
+    ioport_write(qxl, QXL_IO_FLUSH_RELEASE, 0);
+    sum +=  qxl_garbage_collect (qxl);
+    ErrorF("%s: collected %d\n", __func__, sum);
+#else
+#endif
+}
+#endif
 
 static void qxl_io_monitors_config_async(qxl_screen_t *qxl)
 {
@@ -322,20 +364,6 @@ qxl_garbage_collect (qxl_screen_t *qxl)
     return i;
 }
 
-static void
-qxl_usleep (int useconds)
-{
-    struct timespec t;
-    
-    t.tv_sec = useconds / 1000000;
-    t.tv_nsec = (useconds - (t.tv_sec * 1000000)) * 1000;
-    
-    errno = 0;
-    while (nanosleep (&t, &t) == -1 && errno == EINTR)
-	;
-    
-}
-
 int
 qxl_handle_oom (qxl_screen_t *qxl)
 {
@@ -408,6 +436,7 @@ static void
 map_memory_helper(qxl_screen_t *qxl)
 {
     qxl->ram = malloc(RAM_SIZE);
+    qxl->ram_size = RAM_SIZE;
     qxl->ram_physical = qxl->ram;
     qxl->vram = malloc(VRAM_SIZE);
     qxl->vram_size = VRAM_SIZE;
@@ -446,6 +475,7 @@ map_memory_helper(qxl_screen_t *qxl)
 			 PCI_DEV_MAP_FLAG_WRITABLE | PCI_DEV_MAP_FLAG_WRITE_COMBINE,
 			 &qxl->ram);
     qxl->ram_physical = u64_to_pointer (qxl->pci->regions[0].base_addr);
+    qxl->ram_size = qxl->pci->regions[0].size;
 
     pci_device_map_range(qxl->pci, qxl->pci->regions[1].base_addr,
 			 qxl->pci->regions[1].size,
@@ -518,6 +548,75 @@ qxl_mspace_print_func(void *user_data, const char *format, ...)
     va_end(args);
 }
 
+#ifdef QXLDRV_RESIZABLE_SURFACE0
+static void
+qxl_dump_ring_stat(qxl_screen_t *qxl)
+{
+    int cmd_prod, cursor_prod, cmd_cons, cursor_cons;
+    int release_prod, release_cons;
+
+    cmd_prod = qxl_ring_prod(qxl->command_ring);
+    cursor_prod = qxl_ring_prod(qxl->cursor_ring);
+    cmd_cons = qxl_ring_cons(qxl->command_ring);
+    cursor_cons = qxl_ring_cons(qxl->cursor_ring);
+    release_prod = qxl_ring_prod(qxl->release_ring);
+    release_cons = qxl_ring_cons(qxl->release_ring);
+
+    ErrorF("%s: Cmd %d/%d, Cur %d/%d, Rel %d/%d\n",
+           __func__, cmd_cons, cmd_prod, cursor_cons, cursor_prod,
+           release_cons, release_prod);
+}
+#endif
+
+/* To resize surface0 we need to ensure qxl->mem is empty. We can do that by:
+ * - fast:
+ *   - ooming until command ring is empty.
+ *   - flushing the release ring (>V10)
+ * - slow: calling update_area on all surfaces.
+ * This is done via already known code, so use that by default now.
+ */
+static int
+qxl_resize_surface0(qxl_screen_t *qxl, long surface0_size)
+{
+    long ram_header_size = qxl->ram_size - qxl->rom->ram_header_offset;
+    long new_mem_size = qxl->ram_size - surface0_size - ram_header_size
+                                      - qxl->monitors_config_size;
+
+    if (new_mem_size < 0) {
+        ErrorF ("cannot resize surface0 to %ld, does not fit in BAR 0\n",
+                surface0_size);
+        return 0;
+    }
+    ErrorF ("resizing surface0 to %ld\n", surface0_size);
+
+    if (qxl->mem)
+    {
+#ifdef QXLDRV_RESIZABLE_SURFACE0
+        void *surfaces;
+        qxl_dump_ring_stat(qxl);
+        qxl_io_flush_surfaces(qxl);
+        surfaces = qxl_surface_cache_evacuate_all (qxl->surface_cache);
+        qxl_io_destroy_all_surfaces(qxl); // redundant?
+        qxl_io_flush_release(qxl);
+        qxl_drop_image_cache (qxl);
+        qxl_dump_ring_stat(qxl);
+	qxl_surface_cache_replace_all (qxl->surface_cache, surfaces);
+#else
+        ErrorF ("resizing surface0 compiled out\n");
+        return 0;
+#endif
+    }
+
+    /* surface0_area is still fixed to start of ram BAR */
+    qxl->surface0_size = surface0_size;
+
+    qxl->mem_size = new_mem_size;
+    qxl->mem = qxl_mem_create ((void *)((unsigned long)qxl->surface0_area
+                                                     + qxl->surface0_size),
+			       qxl->mem_size);
+    return 1;
+}
+
 static Bool
 qxl_map_memory(qxl_screen_t *qxl, int scrnIndex)
 {
@@ -538,22 +637,21 @@ qxl_map_memory(qxl_screen_t *qxl, int scrnIndex)
 
     xf86DrvMsg(scrnIndex, X_INFO, "rom at %p\n", qxl->rom);
 
-    qxl->num_modes = *(uint32_t *)((uint8_t *)qxl->rom + qxl->rom->modes_offset);
-    qxl->modes = (struct QXLMode *)(((uint8_t *)qxl->rom) + qxl->rom->modes_offset + 4);
-    qxl->surface0_area = qxl->ram;
-    qxl->surface0_size = qxl->rom->surface0_area_size;
-
     /*
-     * We keep a hole for MonitorsConfig. This is not part of QXLRam to ensure
-     * we, the driver, can change it without affecting the driver/device ABI.
+     * Keep a hole for MonitorsConfig. This is not part of QXLRam to ensure
+     * the driver can change it without affecting the driver/device ABI.
      */
     qxl->monitors_config_size = (sizeof(QXLMonitorsConfig) +
                                 sizeof(QXLHead) * MAX_MONITORS_NUM + getpagesize() - 1)
                                 & ~(getpagesize() - 1);
-    qxl->mem_size = qxl->rom->num_pages * getpagesize() - qxl->monitors_config_size;
-
-    qxl->mem = qxl_mem_create ((void *)((unsigned long)qxl->ram + qxl->surface0_size),
-			       qxl->mem_size);
+    qxl->num_modes = *(uint32_t *)((uint8_t *)qxl->rom + qxl->rom->modes_offset);
+    qxl->modes = (struct QXLMode *)(((uint8_t *)qxl->rom) + qxl->rom->modes_offset + 4);
+    qxl->surface0_area = qxl->ram;
+    qxl->surface0_size = 0;
+    qxl->mem = NULL;
+    if (!qxl_resize_surface0(qxl, qxl->rom->surface0_area_size)) {
+        return FALSE;
+    }
     qxl->surf_mem = qxl_mem_create ((void *)((unsigned long)qxl->vram), qxl->vram_size);
     qxl_allocate_monitors_config(qxl);
 
@@ -749,23 +847,33 @@ set_screen_pixmap_header (ScreenPtr pScreen)
 	ErrorF ("pix: %p;\n", pPixmap);
 }
 
-static void
+static Bool
 qxl_resize_primary_to_virtual(qxl_screen_t *qxl)
 {
     ScreenPtr pScreen;
+    long new_surface0_size;
 
     if ((qxl->primary_mode.x_res == qxl->virtual_x &&
         qxl->primary_mode.y_res == qxl->virtual_y) &&
         qxl->device_primary == QXL_DEVICE_PRIMARY_CREATED) {
-        return;
+        return TRUE; /* empty Success */
     }
 
     ErrorF ("resizing primary to %dx%d\n", qxl->virtual_x, qxl->virtual_y);
 
+    new_surface0_size = qxl->virtual_x * qxl->pScrn->bitsPerPixel / 8
+                                       * qxl->virtual_y;
+    if (new_surface0_size > qxl->surface0_size)
+    {
+        if (!qxl_resize_surface0(qxl, new_surface0_size)) {
+            ErrorF("not resizing primary to virtual, leaving old virtual\n");
+            return FALSE;
+        }
+    }
     if (qxl->primary)
     {
-	qxl_surface_kill (qxl->primary);
-	qxl_surface_cache_sanity_check (qxl->surface_cache);
+        qxl_surface_kill (qxl->primary);
+        qxl_surface_cache_sanity_check (qxl->surface_cache);
         qxl_io_destroy_primary(qxl);
     }
 
@@ -796,9 +904,10 @@ qxl_resize_primary_to_virtual(qxl_screen_t *qxl)
     }
 
     ErrorF ("primary is %p\n", qxl->primary);
+    return TRUE;
 }
 
-static void
+static Bool
 qxl_resize_primary(qxl_screen_t *qxl, uint32_t width, uint32_t height)
 {
     qxl->virtual_x = width;
@@ -807,9 +916,9 @@ qxl_resize_primary(qxl_screen_t *qxl, uint32_t width, uint32_t height)
     if (qxl->vt_surfaces) {
         ErrorF("%s: ignoring resize due to not being in control of VT\n",
                __FUNCTION__);
-        return;
+        return FALSE;
     }
-    qxl_resize_primary_to_virtual(qxl);
+    return qxl_resize_primary_to_virtual(qxl);
 }
 
 static Bool
@@ -820,9 +929,7 @@ qxl_switch_mode(SWITCH_MODE_ARGS_DECL)
 
     ErrorF ("Ignoring display mode, ensuring recreation of primary\n");
 
-    qxl_resize_primary_to_virtual(qxl);
-
-    return TRUE;
+    return qxl_resize_primary_to_virtual(qxl);
 }
 
 enum ROPDescriptor
@@ -1410,7 +1517,9 @@ qxl_screen_init(SCREEN_INIT_ARGS_DECL)
         return FALSE;
     }
 
-    qxl_resize_primary_to_virtual(qxl);
+    if (!qxl_resize_primary_to_virtual(qxl)) {
+        return FALSE;
+    }
     
     /* Note: this must be done after DamageSetup() because it calls
      * _dixInitPrivates. And if that has been called, DamageSetup()
@@ -1436,7 +1545,9 @@ qxl_enter_vt(VT_FUNC_ARGS_DECL)
 
     qxl_reset_and_create_mem_slots (qxl);
 
-    qxl_resize_primary_to_virtual(qxl);
+    if (!qxl_resize_primary_to_virtual(qxl)) {
+        return FALSE;
+    }
 
     if (qxl->mem)
     {
@@ -1775,7 +1886,9 @@ qxl_xf86crtc_resize (ScrnInfoPtr scrn, int width, int height)
 
     xf86DrvMsg(scrn->scrnIndex, X_INFO, "%s: Placeholder resize %dx%d\n",
                __func__, width, height);
-    qxl_resize_primary(qxl, width, height);
+    if (!qxl_resize_primary(qxl, width, height)) {
+        return FALSE;
+    }
     scrn->virtualX = width;
     scrn->virtualY = height;
     qxl_update_monitors_config(qxl);
