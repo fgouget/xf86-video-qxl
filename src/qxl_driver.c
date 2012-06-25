@@ -1775,28 +1775,12 @@ qxl_init_randr(ScrnInfoPtr pScrn, qxl_screen_t *qxl)
     qxl_crtc_private *qxl_crtc;
     int i;
     xf86OutputPtr output;
-    int maxWidth;
-    int maxHeight;
-
-    /* TODO: Hack */
-    switch (qxl->num_heads) {
-    case 1:
-        maxWidth = 1024;
-        maxHeight = 768;
-        break;
-    case 2:
-        maxWidth = 2048;
-        maxHeight = 1024;
-    default:
-        maxWidth = (qxl->num_heads > 4 ? 4 : qxl->num_heads) * 1280;
-        maxHeight = 1024;
-    }
 
     xf86CrtcConfigInit(pScrn, &qxl_xf86crtc_config_funcs);
 
-    /* This is actually redundant, it's overwritten by a later call via
+    /* CHECKME: This is actually redundant, it's overwritten by a later call via
      * xf86InitialConfiguration */
-    xf86CrtcSetSizeRange(pScrn, 320, 200, maxWidth, maxHeight);
+    xf86CrtcSetSizeRange(pScrn, 320, 200, 8192, 8192);
 
     qxl->crtcs = xnfcalloc(sizeof(xf86CrtcPtr), qxl->num_heads);
     qxl->outputs = xnfcalloc(sizeof(xf86OutputPtr), qxl->num_heads);
