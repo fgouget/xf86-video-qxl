@@ -285,7 +285,7 @@ static const SpiceMouseInterface mouse_interface = {
 
 static void tablet_set_logical_size(SpiceTabletInstance* sin, int width, int height)
 {
-    XSpicePointer *pointer = container_of(sin, XSpicePointer, tablet);
+    XSpicePointer *spice_pointer = container_of(sin, XSpicePointer, tablet);
 
     if (height < 16) {
         height = 16;
@@ -293,23 +293,23 @@ static void tablet_set_logical_size(SpiceTabletInstance* sin, int width, int hei
     if (width < 16) {
         width = 16;
     }
-    pointer->width  = width;
-    pointer->height = height;
+    spice_pointer->width  = width;
+    spice_pointer->height = height;
 }
 
 static void tablet_position(SpiceTabletInstance* sin, int x, int y,
                             uint32_t buttons_state)
 {
-    XSpicePointer *pointer = container_of(sin, XSpicePointer, tablet);
+    XSpicePointer *spice_pointer = container_of(sin, XSpicePointer, tablet);
 
     // TODO: don't ignore buttons_state
-    xf86PostMotionEvent(pointer->pInfo->dev, 1, 0, 2, x, y);
+    xf86PostMotionEvent(spice_pointer->pInfo->dev, 1, 0, 2, x, y);
 }
 
 static void tablet_buttons(SpiceTabletInstance *sin,
                            uint32_t buttons_state)
 {
-    XSpicePointer *pointer = container_of(sin, XSpicePointer, tablet);
+    XSpicePointer *spice_pointer = container_of(sin, XSpicePointer, tablet);
     static uint32_t old_buttons_state = 0;
     int i;
 
@@ -324,7 +324,7 @@ static void tablet_buttons(SpiceTabletInstance *sin,
     for (i = 0; i < BUTTONS; i++) {
         if ((buttons_state ^ old_buttons_state) & (1 << i)) {
             int action = (buttons_state & (1 << i));
-            xf86PostButtonEvent(pointer->pInfo->dev, 0, i + 1, action, 0, 0);
+            xf86PostButtonEvent(spice_pointer->pInfo->dev, 0, i + 1, action, 0, 0);
         }
     }
     old_buttons_state = buttons_state;
@@ -372,13 +372,13 @@ XSpiceKeyboardPreInit(InputDriverPtr drv, InputInfoPtr pInfo, int flags)
 static int
 XSpicePointerPreInit(InputDriverPtr drv, InputInfoPtr pInfo, int flags)
 {
-    XSpicePointer *pointer;
+    XSpicePointer *spice_pointer;
 
-    pointer = calloc(sizeof(*pointer), 1);
-    pointer->mouse.base.sif  = &mouse_interface.base;
-    pointer->tablet.base.sif = &tablet_interface.base;
-    pointer->absolute = TRUE;
-    pointer->pInfo = pInfo;
+    spice_pointer = calloc(sizeof(*spice_pointer), 1);
+    spice_pointer->mouse.base.sif  = &mouse_interface.base;
+    spice_pointer->tablet.base.sif = &tablet_interface.base;
+    spice_pointer->absolute = TRUE;
+    spice_pointer->pInfo = pInfo;
 
     pInfo->private = NULL;
     pInfo->type_name = "UNKNOWN";
@@ -386,7 +386,7 @@ XSpicePointerPreInit(InputDriverPtr drv, InputInfoPtr pInfo, int flags)
     pInfo->read_input = NULL;
     pInfo->switch_mode = NULL;
 
-    spice_server_add_interface(xspice_get_spice_server(), &pointer->tablet.base);
+    spice_server_add_interface(xspice_get_spice_server(), &spice_pointer->tablet.base);
     return Success;
 }
 
