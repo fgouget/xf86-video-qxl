@@ -895,6 +895,21 @@ qxl_create_desired_modes(qxl_screen_t *qxl)
     return TRUE;
 }
 
+static void
+qxl_update_edid(qxl_screen_t *qxl)
+{
+    int i;
+    xf86CrtcConfigPtr config = XF86_CRTC_CONFIG_PTR(qxl->pScrn);
+
+    for (i = 0 ; i < config->num_crtc; ++i) {
+        xf86CrtcPtr crtc = config->crtc[i];
+        if (!crtc->enabled) {
+            continue;
+        }
+        qxl_output_edid_set(qxl->outputs[i], i, &crtc->desiredMode);
+    }
+}
+
 static Bool
 qxl_create_screen_resources(ScreenPtr pScreen)
 {
@@ -927,6 +942,7 @@ qxl_create_screen_resources(ScreenPtr pScreen)
     }
 
     qxl_create_desired_modes(qxl);
+    qxl_update_edid(qxl);
 
     return TRUE;
 }
@@ -1607,7 +1623,9 @@ static Bool
 qxl_output_set_property(xf86OutputPtr output, Atom property,
         RRPropertyValuePtr value)
 {
-    return FALSE;
+    /* EDID data is stored in the "EDID" atom property, we must return
+     * TRUE here for that. No penalty to say ok to everything else. */
+    return TRUE;
 }
 
 static Bool
@@ -1670,6 +1688,7 @@ qxl_crtc_set_mode_major(xf86CrtcPtr crtc, DisplayModePtr mode,
 #if XORG_VERSION_CURRENT >= XORG_VERSION_NUMERIC(1,5,99,0,0)
     crtc->transformPresent = FALSE;
 #endif
+    qxl_output_edid_set(crtc_private->output, crtc_private->head, mode);
     qxl_update_monitors_config(qxl);
     return TRUE;
 }

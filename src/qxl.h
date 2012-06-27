@@ -264,6 +264,7 @@ struct _qxl_screen_t
 typedef struct qxl_output_private {
     qxl_screen_t *qxl;
     int           head;
+    xf86OutputStatus status;
 } qxl_output_private;
 
 typedef struct qxl_crtc_private {
@@ -468,6 +469,11 @@ void qxl_io_destroy_primary(qxl_screen_t *qxl);
 void qxl_io_notify_oom(qxl_screen_t *qxl);
 void qxl_io_flush_surfaces(qxl_screen_t *qxl);
 void qxl_io_destroy_all_surfaces (qxl_screen_t *qxl);
+
+/*
+ * qxl_edid.c
+ */
+Bool qxl_output_edid_set(xf86OutputPtr output, int head, DisplayModePtr mode);
 
 #ifdef XSPICE
 /* device to spice-server, now xspice to spice-server */
