@@ -1955,11 +1955,21 @@ qxl_initialize_x_modes(qxl_screen_t *qxl, ScrnInfoPtr pScrn,
                        unsigned int *max_x, unsigned int *max_y)
 {
     int i;
+    int size;
 
     *max_x = *max_y = 0;
     /* Create a list of modes used by the qxl_output_get_modes */
-    for (i = 0; i < qxl->num_modes; i++) {
-        if (qxl->modes[i].orientation == 0) {
+    for (i = 0; i < qxl->num_modes; i++)
+    {
+        if (qxl->modes[i].orientation == 0)
+        {
+            size = qxl->modes[i].x_res * qxl->modes[i].y_res * 4;
+            if (size > qxl->surface0_size) {
+                ErrorF ("skipping mode %dx%d not fitting in surface0",
+                        qxl->modes[i].x_res, qxl->modes[i].y_res);
+                continue;
+            }
+
             qxl_add_mode(qxl, pScrn, qxl->modes[i].x_res, qxl->modes[i].y_res,
                          M_T_DRIVER);
             if (qxl->modes[i].x_res > *max_x)
