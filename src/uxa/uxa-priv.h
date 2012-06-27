@@ -111,7 +111,7 @@ typedef struct {
 
 #define UXA_NUM_SOLID_CACHE 16
 
-typedef void (*EnableDisableFBAccessProcPtr) (SCREEN_ARG_TYPE, Bool);
+typedef void (*EnableDisableFBAccessProcPtr) (SCRN_ARG_TYPE, Bool);
 typedef struct {
 	uxa_driver_t *info;
 	CreateGCProcPtr SavedCreateGC;

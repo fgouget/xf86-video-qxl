@@ -359,9 +359,10 @@ static RegionPtr uxa_bitmap_to_region(PixmapPtr pPix)
 	return ret;
 }
 
-static void uxa_xorg_enable_disable_fb_access(SCREEN_ARG_TYPE arg, Bool enable)
+static void uxa_xorg_enable_disable_fb_access(SCRN_ARG_TYPE arg, Bool enable)
 {
-	SCREEN_PTR(arg);
+	SCRN_INFO_PTR(arg);
+	ScreenPtr pScreen = pScrn->pScreen;
 	uxa_screen_t *uxa_screen = uxa_get_screen(pScreen);
 
 	if (!enable && uxa_screen->disableFbCount++ == 0)
