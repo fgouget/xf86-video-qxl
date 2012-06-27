@@ -266,6 +266,12 @@ typedef struct qxl_output_private {
     int           head;
 } qxl_output_private;
 
+typedef struct qxl_crtc_private {
+    qxl_screen_t *qxl;
+    int           head;
+    xf86OutputPtr output;
+} qxl_crtc_private;
+
 static inline uint64_t
 physical_address (qxl_screen_t *qxl, void *virtual, uint8_t slot_id)
 {
