@@ -750,7 +750,7 @@ qxl_create_screen_resources(ScreenPtr pScreen)
     pScreen->CreateScreenResources = qxl->create_screen_resources;
     ret = pScreen->CreateScreenResources (pScreen);
     pScreen->CreateScreenResources = qxl_create_screen_resources;
-    
+
     if (!ret)
 	return FALSE;
 
