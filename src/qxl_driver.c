@@ -1897,7 +1897,9 @@ qxl_pre_init(ScrnInfoPtr pScrn, int flags)
     qxl->pci_tag = pciTag(qxl->pci->bus, qxl->pci->device, qxl->pci->func);
 #endif
 #endif /* XSPICE */
-
+    if (qxl->pci->revision < 4) {
+        ErrorF ("Ignoring monitor config, device revision < 4\n");
+    }
     pScrn->monitor = pScrn->confScreen->monitor;
     
     if (!qxl_color_setup(pScrn))
