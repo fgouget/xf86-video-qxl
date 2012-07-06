@@ -995,18 +995,44 @@ qxl_update_monitors_config(qxl_screen_t *qxl)
 }
 
 static Bool
+crtc_set_mode_major(xf86CrtcPtr crtc, DisplayModePtr mode,
+                    Rotation rotation, int x, int y)
+{
+    qxl_crtc_private *crtc_private = crtc->driver_private;
+    qxl_screen_t *qxl = crtc_private->qxl;
+
+    if (crtc == qxl->crtcs[0] && mode == NULL) {
+        /* disallow disabling of monitor 0 mode */
+        ErrorF("%s: not allowing crtc 0 disablement\n", __func__);
+        return FALSE;
+    }
+
+    crtc->mode = *mode;
+    crtc->x = x;
+    crtc->y = y;
+    crtc->rotation = rotation;
+#if XORG_VERSION_CURRENT >= XORG_VERSION_NUMERIC(1,5,99,0,0)
+    crtc->transformPresent = FALSE;
+#endif
+    qxl_output_edid_set(crtc_private->output, crtc_private->head, mode);
+
+    return TRUE;
+}
+
+static Bool
 qxl_create_desired_modes(qxl_screen_t *qxl)
 {
     int i;
     xf86CrtcConfigPtr config = XF86_CRTC_CONFIG_PTR(qxl->pScrn);
+    CHECK_POINT();
 
     for (i = 0 ; i < config->num_crtc; ++i) {
         xf86CrtcPtr crtc = config->crtc[i];
         if (!crtc->enabled)
             continue;
 
-        if (!crtc->funcs->set_mode_major(crtc, &crtc->desiredMode, crtc->desiredRotation,
-                                         crtc->desiredX, crtc->desiredY))
+        if (!crtc_set_mode_major(crtc, &crtc->desiredMode, crtc->desiredRotation,
+                                 crtc->desiredX, crtc->desiredY))
             return FALSE;
     }
 
@@ -1780,22 +1806,14 @@ qxl_crtc_set_mode_major(xf86CrtcPtr crtc, DisplayModePtr mode,
 {
     qxl_crtc_private *crtc_private = crtc->driver_private;
     qxl_screen_t *qxl = crtc_private->qxl;
+    CHECK_POINT();
 
-    if (crtc == qxl->crtcs[0] && mode == NULL) {
-        /* disallow disabling of monitor 0 mode */
-        ErrorF("%s: not allowing crtc 0 disablement\n", __func__);
+    if (!crtc_set_mode_major(crtc, mode, rotation, x, y))
         return FALSE;
-    }
 
-    crtc->mode = *mode;
-    crtc->x = x;
-    crtc->y = y;
-    crtc->rotation = rotation;
-#if XORG_VERSION_CURRENT >= XORG_VERSION_NUMERIC(1,5,99,0,0)
-    crtc->transformPresent = FALSE;
-#endif
-    qxl_output_edid_set(crtc_private->output, crtc_private->head, mode);
+    check_crtc(qxl);
     qxl_update_monitors_config(qxl);
+
     return TRUE;
 }
 
