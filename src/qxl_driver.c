@@ -58,10 +58,13 @@
 
 extern void compat_init_scrn(ScrnInfoPtr);
 
-#if 0
+#ifdef WITH_CHECK_POINT
 #define CHECK_POINT() ErrorF("%s: %d  (%s)\n", __FILE__, __LINE__, __FUNCTION__);
-#endif
+#else
 #define CHECK_POINT()
+#endif
+
+#define BREAKPOINT()   do{ __asm__ __volatile__ ("int $03"); } while(0)
 
 const OptionInfoRec DefaultOptions[] = {
     { OPTION_ENABLE_IMAGE_CACHE,
@@ -930,6 +933,30 @@ enum ROPDescriptor {
     ROPD_INVERS_RES = (1 <<10),
 };
 
+static int
+check_crtc(qxl_screen_t *qxl)
+{
+    int i, count = 0;
+    xf86CrtcPtr crtc;
+
+    for (i = 0 ; i < qxl->num_heads; ++i) {
+        crtc = qxl->crtcs[i];
+        if (!crtc->enabled || crtc->mode.CrtcHDisplay == 0 ||
+            crtc->mode.CrtcVDisplay == 0)
+            continue;
+        count++;
+    }
+
+#if 0
+    if (count == 0) {
+        ErrorF("check crtc failed, count == 0!!\n");
+        BREAKPOINT();
+    }
+#endif
+
+    return count;
+}
+
 static void
 qxl_update_monitors_config(qxl_screen_t *qxl)
 {
@@ -937,6 +964,8 @@ qxl_update_monitors_config(qxl_screen_t *qxl)
     QXLHead *head;
     xf86CrtcPtr crtc;
     QXLRam *ram = get_ram_header(qxl);
+
+    check_crtc(qxl);
 
     qxl->monitors_config->count = 0;
     qxl->monitors_config->max_allowed = qxl->num_heads;
@@ -1914,6 +1943,8 @@ qxl_init_randr(ScrnInfoPtr pScrn, qxl_screen_t *qxl)
     pScrn->display->virtualY = qxl->virtual_y;
 
     xf86InitialConfiguration(pScrn, TRUE);
+    /* all crtcs are enabled here, but their mode is 0,
+       resulting monitor config empty atm */
 }
 
 static void
