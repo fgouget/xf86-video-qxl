@@ -1904,7 +1904,11 @@ qxl_xf86crtc_resize(ScrnInfoPtr scrn, int width, int height)
 
     scrn->virtualX = width;
     scrn->virtualY = height;
-    qxl_update_monitors_config(qxl);
+
+    // when starting, no monitor is enabled, and count == 0
+    // we want to avoid server/client freaking out with temporary config
+    if (check_crtc(qxl) != 0)
+        qxl_update_monitors_config(qxl);
 
     return TRUE;
 }
