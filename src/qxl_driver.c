@@ -701,9 +701,8 @@ qxl_switch_mode(SWITCH_MODE_ARGS_DECL)
     {
 	qxl_surface_kill (qxl->primary);
 	qxl_surface_cache_sanity_check (qxl->surface_cache);
+        qxl_io_destroy_primary(qxl);
     }
-
-    qxl_io_destroy_primary(qxl);
 
     qxl->primary = qxl_surface_cache_create_primary (qxl->surface_cache, m);
     qxl->current_mode = m;
