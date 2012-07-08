@@ -40,6 +40,7 @@
 #include <stdlib.h>
 
 #include <xf86Crtc.h>
+#include <xf86RandR12.h>
 
 #include "mspace.h"
 
@@ -1554,6 +1555,11 @@ qxl_screen_init(SCREEN_INIT_ARGS_DECL)
     if (!uxa_resources_init(pScreen))
         return FALSE;
     CHECK_POINT();
+
+    /* fake transform support, to allow agent to switch crtc mode */
+    /* without X doing checks, see rrcrtc.c "Check screen size */
+    /* bounds" */
+    xf86RandR12SetTransformSupport(pScreen, TRUE);
 
     return TRUE;
 
