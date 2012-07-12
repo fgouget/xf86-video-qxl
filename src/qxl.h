@@ -392,7 +392,21 @@ Bool		    qxl_surface_put_image    (qxl_surface_t *dest,
 					      const char *src, int src_pitch);
 void		    qxl_surface_unref        (surface_cache_t *cache,
 					      uint32_t surface_id);
-					      
+
+/* composite */
+Bool		    qxl_surface_prepare_composite (int op,
+						   PicturePtr	src_picture,
+						   PicturePtr	mask_picture,
+						   PicturePtr   dst_picture,
+						   qxl_surface_t *src,
+						   qxl_surface_t *mask,
+						   qxl_surface_t *dest);
+void		   qxl_surface_composite (qxl_surface_t *dest,
+					  int src_x, int src_y,
+					  int mask_x, int mask_y,
+					  int dst_x, int dst_y,
+					  int width, int height);
+
 #if HAS_DEVPRIVATEKEYREC
 extern DevPrivateKeyRec uxa_pixmap_index;
 #else

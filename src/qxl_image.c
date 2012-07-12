@@ -138,7 +138,7 @@ qxl_image_create (qxl_screen_t *qxl, const uint8_t *data,
 	struct QXLImage *image;
 	struct QXLDataChunk *head;
 	struct QXLDataChunk *tail;
-	int dest_stride = width * Bpp;
+	int dest_stride = (width * Bpp + 3) & (~3);
 	int h;
 
 	data += y * stride + x * Bpp;
@@ -216,7 +216,7 @@ qxl_image_create (qxl_screen_t *qxl, const uint8_t *data,
 	image->bitmap.flags = SPICE_BITMAP_FLAGS_TOP_DOWN;
 	image->bitmap.x = width;
 	image->bitmap.y = height;
-	image->bitmap.stride = width * Bpp;
+	image->bitmap.stride = dest_stride;
 	image->bitmap.palette = 0;
 	image->bitmap.data = physical_address (qxl, head, qxl->main_mem_slot);
 

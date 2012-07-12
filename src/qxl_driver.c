@@ -339,14 +339,14 @@ qxl_garbage_collect_internal (qxl_screen_t *qxl, uint64_t id)
     int is_cursor = FALSE;
     int is_surface = FALSE;
     int is_drawable = FALSE;
-
+    
     if ((id & POINTER_MASK) == 1)
 	is_cursor = TRUE;
     else if ((id & POINTER_MASK) == 2)
 	is_surface = TRUE;
     else
 	is_drawable = TRUE;
-
+    
     if (is_cursor && cmd->type == QXL_CURSOR_SET)
     {
 	struct QXLCursor *cursor = (void *)virtual_address (
@@ -358,7 +358,7 @@ qxl_garbage_collect_internal (qxl_screen_t *qxl, uint64_t id)
     {
 	struct QXLImage *image = virtual_address (
 	    qxl, u64_to_pointer (drawable->u.copy.src_bitmap), qxl->main_mem_slot);
-
+	
 	if (image->descriptor.type == SPICE_IMAGE_TYPE_SURFACE)
 	{
 	    qxl_surface_unref (qxl->surface_cache, image->surface_image.surface_id);
@@ -370,16 +370,50 @@ qxl_garbage_collect_internal (qxl_screen_t *qxl, uint64_t id)
 	    qxl_image_destroy (qxl, image);
 	}
     }
+    else if (is_drawable && drawable->type == QXL_DRAW_COMPOSITE)
+    {
+	struct QXLTransform *src_trans, *mask_trans;
+	struct QXLImage *src_img, *mask_img;
+	struct QXLComposite *composite = &drawable->u.composite;
+	
+	/* Source */
+	src_img = virtual_address (
+	    qxl, u64_to_pointer (drawable->u.composite.src), qxl->main_mem_slot);
+	qxl_free (qxl->mem, src_img, "image struct");
+	
+	if (composite->src_transform)
+	{
+	    src_trans = virtual_address (
+		qxl, u64_to_pointer (composite->src_transform), qxl->main_mem_slot);
+	    qxl_free (qxl->mem, src_trans, "transform");
+	}
+	
+	/* Mask */
+	if (drawable->u.composite.mask)
+	{
+	    if (drawable->u.composite.mask_transform)
+	    {
+		mask_trans = virtual_address (
+		    qxl, u64_to_pointer (drawable->u.composite.mask_transform), qxl->main_mem_slot);
+		
+		qxl_free (qxl->mem, mask_trans, "transform");
+	    }
+	    
+	    mask_img = virtual_address (
+		qxl, u64_to_pointer (drawable->u.composite.mask), qxl->main_mem_slot);
+	    qxl_free (qxl->mem, mask_img, "image struct");
+	}
+    }
     else if (is_surface && surface_cmd->type == QXL_SURFACE_CMD_DESTROY)
     {
 	qxl_surface_recycle (qxl->surface_cache, surface_cmd->surface_id);
 	qxl_surface_cache_sanity_check (qxl->surface_cache);
     }
-	    
+    
     id = info->next;
-	    
+    
     qxl_free (qxl->mem, info, "command");
-
+    
     return id;
 }
 
@@ -1198,12 +1232,6 @@ int uxa_pixmap_index;
 #endif
 
 static Bool
-unaccel (void)
-{
-    return FALSE;
-}
-
-static Bool
 qxl_prepare_access (PixmapPtr pixmap, RegionPtr region, uxa_access_t access)
 {
     return qxl_surface_prepare_access (get_surface (pixmap),
@@ -1310,6 +1338,131 @@ qxl_copy (PixmapPtr dest,
 static void
 qxl_done_copy (PixmapPtr dest)
 {
+}
+
+/*
+ * Composite
+ */
+static Bool
+can_accelerate_picture (PicturePtr pict)
+{
+    if (!pict)
+	return TRUE;
+
+    if (pict->format != PICT_a8r8g8b8		&&
+	pict->format != PICT_x8r8g8b8		&&
+	pict->format != PICT_a8)
+    {
+	return FALSE;
+    }
+
+    if (!pict->pDrawable)
+	return FALSE;
+
+    if (pict->transform)
+    {
+	if (pict->transform->matrix[2][0] != 0	||
+	    pict->transform->matrix[2][1] != 0	||
+	    pict->transform->matrix[2][2] != pixman_int_to_fixed (1))
+	{
+	    return FALSE;
+	}
+    }
+
+    if (pict->filter != PictFilterBilinear	&&
+	pict->filter != PictFilterNearest)
+    {
+	return FALSE;
+    }
+    
+    return TRUE;
+}
+
+static Bool
+qxl_check_composite (int op,
+		     PicturePtr pSrcPicture,
+		     PicturePtr pMaskPicture,
+		     PicturePtr pDstPicture,
+		     int width, int height)
+{
+    int i;
+
+    static const int accelerated_ops[] =
+    {
+	PictOpClear, PictOpSrc, PictOpDst, PictOpOver, PictOpOverReverse,
+	PictOpIn, PictOpInReverse, PictOpOut, PictOpOutReverse,
+	PictOpAtop, PictOpAtopReverse, PictOpXor, PictOpAdd,
+	PictOpSaturate, PictOpMultiply, PictOpScreen, PictOpOverlay,
+	PictOpDarken, PictOpLighten, PictOpColorDodge, PictOpColorBurn,
+	PictOpHardLight, PictOpSoftLight, PictOpDifference, PictOpExclusion,
+	PictOpHSLHue, PictOpHSLSaturation, PictOpHSLColor, PictOpHSLLuminosity,
+    };
+    
+    if (!can_accelerate_picture (pSrcPicture)	||
+	!can_accelerate_picture (pMaskPicture)	||
+	!can_accelerate_picture (pDstPicture))
+    {
+	return FALSE;
+    }
+
+    for (i = 0; i < sizeof (accelerated_ops) / sizeof (accelerated_ops[0]); ++i)
+    {
+	if (accelerated_ops[i] == op)
+	    goto found;
+    }
+    return FALSE;
+
+found:
+    return TRUE;
+}
+
+static Bool
+qxl_check_composite_target (PixmapPtr pixmap)
+{
+    return TRUE;
+}
+
+static Bool
+qxl_check_composite_texture (ScreenPtr screen,
+			     PicturePtr pPicture)
+{
+    return TRUE;
+}
+
+static Bool
+qxl_prepare_composite (int op,
+		       PicturePtr pSrcPicture,
+		       PicturePtr pMaskPicture,
+		       PicturePtr pDstPicture,
+		       PixmapPtr pSrc,
+		       PixmapPtr pMask,
+		       PixmapPtr pDst)
+{
+    return qxl_surface_prepare_composite (
+	op, pSrcPicture, pMaskPicture, pDstPicture,
+	get_surface (pSrc),
+	pMask? get_surface (pMask) : NULL,
+	get_surface (pDst));
+}
+
+static void
+qxl_composite (PixmapPtr pDst,
+	       int src_x, int src_y,
+	       int mask_x, int mask_y,
+	       int dst_x, int dst_y,
+	       int width, int height)
+{
+    qxl_surface_composite (
+	get_surface (pDst),
+	src_x, src_y,
+	mask_x, mask_y,
+	dst_x, dst_y, width, height);
+}
+
+static void
+qxl_done_composite (PixmapPtr pDst)
+{
+    ;
 }
 
 static Bool
@@ -1453,12 +1606,12 @@ setup_uxa (qxl_screen_t *qxl, ScreenPtr screen)
     qxl->uxa->done_copy = qxl_done_copy;
     
     /* Composite */
-    qxl->uxa->check_composite = (typeof (qxl->uxa->check_composite))unaccel;
-    qxl->uxa->check_composite_target = (typeof (qxl->uxa->check_composite_target))unaccel;
-    qxl->uxa->check_composite_texture = (typeof (qxl->uxa->check_composite_texture))unaccel;
-    qxl->uxa->prepare_composite = (typeof (qxl->uxa->prepare_composite))unaccel;
-    qxl->uxa->composite = (typeof (qxl->uxa->composite))unaccel;
-    qxl->uxa->done_composite = (typeof (qxl->uxa->done_composite))unaccel;
+    qxl->uxa->check_composite = qxl_check_composite;
+    qxl->uxa->check_composite_target = qxl_check_composite_target;
+    qxl->uxa->check_composite_texture = qxl_check_composite_texture;
+    qxl->uxa->prepare_composite = qxl_prepare_composite;
+    qxl->uxa->composite = qxl_composite;
+    qxl->uxa->done_composite = qxl_done_composite;
     
     /* PutImage */
     qxl->uxa->put_image = qxl_put_image;
@@ -1625,6 +1778,10 @@ qxl_screen_init (SCREEN_INIT_ARGS_DECL)
     pScreen->SaveScreen = qxl_blank_screen;
     
     setup_uxa (qxl, pScreen);
+
+#if 0
+    uxa_set_fallback_debug(pScreen, TRUE);
+#endif
     
     DamageSetup (pScreen);
     
