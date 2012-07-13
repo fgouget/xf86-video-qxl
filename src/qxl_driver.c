@@ -964,6 +964,7 @@ qxl_update_monitors_config(qxl_screen_t *qxl)
     int i;
     QXLHead *head;
     xf86CrtcPtr crtc;
+    qxl_output_private *qxl_output;
     QXLRam *ram = get_ram_header(qxl);
 
     check_crtc(qxl);
@@ -973,18 +974,21 @@ qxl_update_monitors_config(qxl_screen_t *qxl)
     for (i = 0 ; i < qxl->num_heads; ++i) {
         head = &qxl->monitors_config->heads[qxl->monitors_config->count];
         crtc = qxl->crtcs[i];
+        qxl_output = qxl->outputs[i]->driver_private;
         head->id = i;
         head->surface_id = 0;
         head->flags = 0;
         if (!crtc->enabled || crtc->mode.CrtcHDisplay == 0 ||
             crtc->mode.CrtcVDisplay == 0) {
             head->width = head->height = head->x = head->y = 0;
+            qxl_output->status = XF86OutputStatusDisconnected;
         } else {
             head->width = crtc->mode.CrtcHDisplay;
             head->height = crtc->mode.CrtcVDisplay;
             head->x = crtc->x;
             head->y = crtc->y;
             qxl->monitors_config->count++;
+            qxl_output->status = XF86OutputStatusConnected;
         }
     }
     /* initialize when actually used, memslots should be initialized by now */
@@ -1084,7 +1088,10 @@ qxl_create_screen_resources(ScreenPtr pScreen)
 
     /* HACK - I don't want to enable any crtcs other then the first at the beginning */
     for (i = 1; i < qxl->num_heads; ++i) {
+        qxl_output_private *private;
         qxl->crtcs[i]->enabled = 0;
+        private = qxl->outputs[i]->driver_private;
+        private->status = XF86OutputStatusDisconnected;
     }
 
     qxl_create_desired_modes(qxl);
@@ -1775,10 +1782,9 @@ qxl_output_get_property(xf86OutputPtr output, Atom property)
 static xf86OutputStatus
 qxl_output_detect(xf86OutputPtr output)
 {
-    // TODO - how do I query this? do I add fields and let the host set this instead
-    // of the guest agent? or can I set this via the guest agent? I could just check
-    // some files / anything in userspace, settable by the guest agent. dbus even.
-    return XF86OutputStatusConnected;
+    qxl_output_private *qxl_output = output->driver_private;
+
+    return qxl_output->status;
 }
 
 static Bool
@@ -1961,6 +1967,7 @@ qxl_init_randr(ScrnInfoPtr pScrn, qxl_screen_t *qxl)
         output->driver_private = qxl_output;
         qxl_output->head = i;
         qxl_output->qxl = qxl;
+        qxl_output->status = XF86OutputStatusConnected;
         qxl_crtc->output = output;
     }
 
