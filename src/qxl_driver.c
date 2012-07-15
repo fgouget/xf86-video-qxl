@@ -1710,8 +1710,8 @@ qxl_check_device(ScrnInfoPtr pScrn, qxl_screen_t *qxl)
 }
 #endif /* !XSPICE */
 
-static DisplayModePtr qxl_add_mode(qxl_screen_t *qxl, ScrnInfoPtr pScrn,
-                                   int width, int height, int type)
+static DisplayModePtr
+screen_create_mode(ScrnInfoPtr pScrn, int width, int height, int type)
 {
     DisplayModePtr mode;
 
@@ -1732,7 +1732,18 @@ static DisplayModePtr qxl_add_mode(qxl_screen_t *qxl, ScrnInfoPtr pScrn,
 
     xf86SetModeDefaultName(mode);
     xf86SetModeCrtc(mode, pScrn->adjustFlags); /* needed? xf86-video-modesetting does this */
+
+    return mode;
+}
+
+static DisplayModePtr
+qxl_add_mode(qxl_screen_t *qxl, ScrnInfoPtr pScrn, int width, int height, int type)
+{
+    DisplayModePtr mode;
+
+    mode = screen_create_mode(pScrn, width, height, type);
     qxl->x_modes = xf86ModesAdd(qxl->x_modes, mode);
+
     return mode;
 }
 
@@ -1740,9 +1751,18 @@ static DisplayModePtr
 qxl_output_get_modes(xf86OutputPtr output)
 {
     qxl_output_private *qxl_output = output->driver_private;
+    DisplayModePtr modes = xf86DuplicateModes(qxl_output->qxl->pScrn, qxl_output->qxl->x_modes);
+
+    if (output &&
+        output->crtc && output->crtc->enabled) {
+        DisplayModePtr crtc_mode = &output->crtc->mode;
+        crtc_mode = screen_create_mode(qxl_output->qxl->pScrn, crtc_mode->HDisplay, crtc_mode->VDisplay, M_T_PREFERRED);
+        output->crtc->mode = *crtc_mode;
+        modes = xf86ModesAdd(modes, crtc_mode);
+    }
 
     /* xf86ProbeOutputModes owns this memory */
-    return xf86DuplicateModes(qxl_output->qxl->pScrn, qxl_output->qxl->x_modes);
+    return modes;
 }
 
 static void
