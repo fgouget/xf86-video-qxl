@@ -27,12 +27,12 @@
 #include "config.h"
 #endif
 
-#include <xorg/xf86Xinput.h>
-#include <xorg/exevents.h>
-#include <xorg/xserver-properties.h>
-#include <xorg/list.h>
-#include <xorg/input.h>
-#include <xorg/xkbsrv.h>
+#include <xf86Xinput.h>
+#include <exevents.h>
+#include <xserver-properties.h>
+#include <list.h>
+#include <input.h>
+#include <xkbsrv.h>
 #include <spice.h>
 #include "qxl.h"
 #include "spiceqxl_inputs.h"
