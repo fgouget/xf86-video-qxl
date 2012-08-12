@@ -206,7 +206,7 @@ qxl_image_create (qxl_screen_t *qxl, const uint8_t *data,
 	}
 	else if (Bpp == 4)
 	{
-	    image->bitmap.format = SPICE_BITMAP_FMT_32BIT;
+	    image->bitmap.format = SPICE_BITMAP_FMT_RGBA;
 	}
 	else
 	{
@@ -220,10 +220,6 @@ qxl_image_create (qxl_screen_t *qxl, const uint8_t *data,
 	image->bitmap.palette = 0;
 	image->bitmap.data = physical_address (qxl, head, qxl->main_mem_slot);
 
-#if 0
-	ErrorF ("%p has size %d %d\n", image, width, height);
-#endif
-	
 	/* Add to hash table if caching is enabled */
 	if ((fallback && qxl->enable_fallback_cache)	||
 	    (!fallback && qxl->enable_image_cache))
