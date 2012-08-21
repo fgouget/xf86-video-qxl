@@ -337,7 +337,7 @@ qxl_surface_recycle (surface_cache_t *cache, uint32_t id)
     qxl_surface_t *surface = cache->all_surfaces + id;
 
     n_live--;
-    qxl_free (cache->qxl->surf_mem, surface->address);
+    qxl_free (cache->qxl->surf_mem, surface->address, "surface memory");
 
     surface->next = cache->free_surfaces;
     cache->free_surfaces = surface;
@@ -434,7 +434,7 @@ make_surface_cmd (surface_cache_t *cache, uint32_t id, QXLSurfaceCmdType type)
     struct QXLSurfaceCmd *cmd;
     qxl_screen_t *qxl = cache->qxl;
 
-    cmd = qxl_allocnf (qxl, sizeof *cmd);
+    cmd = qxl_allocnf (qxl, sizeof *cmd, "surface command");
 
     cmd->release_info.id = pointer_to_u64 (cmd) | 2;
     cmd->type = type;
@@ -479,7 +479,7 @@ make_drawable (qxl_screen_t *qxl, int surface, uint8_t type,
     struct QXLDrawable *drawable;
     int i;
     
-    drawable = qxl_allocnf (qxl, sizeof *drawable);
+    drawable = qxl_allocnf (qxl, sizeof *drawable, "drawable command");
     assert(drawable);
     
     drawable->release_info.id = pointer_to_u64 (drawable);
@@ -620,7 +620,7 @@ surface_send_create (surface_cache_t *cache,
      */
     qxl_garbage_collect (qxl);
 retry2:
-    address = qxl_alloc (qxl->surf_mem, stride * height + stride);
+    address = qxl_alloc (qxl->surf_mem, stride * height + stride, "surface memory");
 
     if (!address)
     {
@@ -629,7 +629,7 @@ retry2:
 	if (qxl_garbage_collect (qxl))
 	    goto retry2;
 
-	ErrorF ("- OOM at %d %d %d\n", width, height, bpp);
+	ErrorF ("- OOM at %d %d %d (= %d bytes)\n", width, height, bpp, width * height * (bpp / 8));
 	print_cache_info (cache);
 	
 	if (qxl_handle_oom (qxl))
@@ -652,7 +652,7 @@ retry:
 	if (!qxl_handle_oom (cache->qxl))
 	{
 	    ErrorF ("  Out of surfaces\n");
-	    qxl_free (qxl->surf_mem, address);
+	    qxl_free (qxl->surf_mem, address, "surface memory");
 	    return NULL;
 	}
 	else
@@ -1322,7 +1322,7 @@ qxl_surface_copy (qxl_surface_t *dest,
     }
     else
     {
-	struct QXLImage *image = qxl_allocnf (qxl, sizeof *image);
+	struct QXLImage *image = qxl_allocnf (qxl, sizeof *image, "surface image struct");
 
 	dest->u.copy_src->ref_count++;
 

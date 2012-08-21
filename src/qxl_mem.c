@@ -24,6 +24,8 @@
 #include "config.h"
 #endif
 
+#include <stdarg.h>
+
 #include "qxl.h"
 #include "mspace.h"
 
@@ -51,6 +53,18 @@ qxl_mem_unverifiable(struct qxl_mem *mem)
 }
 #endif
 
+static void
+errout (void *data, const char *format, ...)
+{
+    va_list va;
+
+    va_start (va, format);
+
+    VErrorF (format, va);
+
+    va_end (va);
+}
+
 struct qxl_mem *
 qxl_mem_create       (void                   *base,
 		      unsigned long           n_bytes)
@@ -63,6 +77,8 @@ qxl_mem_create       (void                   *base,
 
     ErrorF ("memory space from %p to %p\n", base, (char *)base + n_bytes);
 
+    mspace_set_print_func (errout);
+    
     mem->space = create_mspace_with_base (base, n_bytes, 0, NULL);
     
     mem->base = base;
@@ -89,20 +105,21 @@ qxl_mem_dump_stats   (struct qxl_mem         *mem,
 		      const char             *header)
 {
     ErrorF ("%s\n", header);
-    
+
     mspace_malloc_stats (mem->space);
 }
 
 void *
 qxl_alloc            (struct qxl_mem         *mem,
-		      unsigned long           n_bytes)
+		      unsigned long           n_bytes,
+		      const char             *name)
 {
     void *addr = mspace_malloc (mem->space, n_bytes);
 
 #ifdef DEBUG_QXL_MEM
     VALGRIND_MALLOCLIKE_BLOCK(addr, n_bytes, 0, 0);
 #ifdef DEBUG_QXL_MEM_VERBOSE
-    fprintf(stderr, "alloc %p: %ld\n", addr, n_bytes);
+    fprintf(stderr, "alloc %p: %ld (%s)\n", addr, n_bytes, name);
 #endif
 #endif
     return addr;
@@ -110,12 +127,16 @@ qxl_alloc            (struct qxl_mem         *mem,
 
 void
 qxl_free             (struct qxl_mem         *mem,
-		      void                   *d)
+		      void                   *d,
+		      const char *            name)
 {
+#if 0
+    ErrorF ("%p <= free %s\n", d, name);
+#endif
     mspace_free (mem->space, d);
 #ifdef DEBUG_QXL_MEM
 #ifdef DEBUG_QXL_MEM_VERBOSE
-    fprintf(stderr, "free  %p\n", d);
+    fprintf(stderr, "free  %p %s\n", d, name);
 #endif
     VALGRIND_FREELIKE_BLOCK(d, 0);
 #endif

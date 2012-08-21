@@ -160,7 +160,7 @@ qxl_image_create (qxl_screen_t *qxl, const uint8_t *data,
 	    int chunk_size = MAX (512 * 512, dest_stride);
 	    int n_lines = MIN ((chunk_size / dest_stride), h);
 	    QXLDataChunk *chunk =
-		qxl_allocnf (qxl, sizeof *chunk + n_lines * dest_stride);
+		qxl_allocnf (qxl, sizeof *chunk + n_lines * dest_stride, "image data");
 
 	    chunk->data_size = n_lines * dest_stride;
 	    hash = hash_and_copy (data, stride,
@@ -187,7 +187,7 @@ qxl_image_create (qxl_screen_t *qxl, const uint8_t *data,
 	}
 
 	/* Image */
-	image = qxl_allocnf (qxl, sizeof *image);
+	image = qxl_allocnf (qxl, sizeof *image, "image struct");
 
 	image->descriptor.id = 0;
 	image->descriptor.type = SPICE_IMAGE_TYPE_BITMAP;
@@ -280,10 +280,10 @@ qxl_image_destroy (qxl_screen_t *qxl,
 
 	chunk = virtual->next_chunk;
 
-	qxl_free (qxl->mem, virtual);
+	qxl_free (qxl->mem, virtual, "image data");
     }
     
-    qxl_free (qxl->mem, image);
+    qxl_free (qxl->mem, image, "image struct");
 }
 
 void

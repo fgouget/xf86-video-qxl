@@ -50,7 +50,7 @@ static struct QXLCursorCmd *
 qxl_alloc_cursor_cmd(qxl_screen_t *qxl)
 {
     struct QXLCursorCmd *cmd =
-	qxl_allocnf (qxl, sizeof(struct QXLCursorCmd));
+	qxl_allocnf (qxl, sizeof(struct QXLCursorCmd), "cursor command");
 
     cmd->release_info.id = pointer_to_u64 (cmd) | 1;
     
@@ -94,7 +94,7 @@ qxl_load_cursor_argb (ScrnInfoPtr pScrn, CursorPtr pCurs)
 
     struct QXLCursorCmd *cmd = qxl_alloc_cursor_cmd (qxl);
     struct QXLCursor *cursor =
-	qxl_allocnf(qxl, sizeof(struct QXLCursor) + size);
+	qxl_allocnf(qxl, sizeof(struct QXLCursor) + size, "cursor data");
 
     cursor->header.unique = 0;
     cursor->header.type = SPICE_CURSOR_TYPE_ALPHA;

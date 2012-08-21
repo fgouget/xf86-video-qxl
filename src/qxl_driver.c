@@ -331,7 +331,7 @@ qxl_garbage_collect_internal (qxl_screen_t *qxl, uint64_t id)
      * question is a cursor command
      */
 #define POINTER_MASK ((1 << 2) - 1)
-    
+	    
     union QXLReleaseInfo *info = u64_to_pointer (id & ~POINTER_MASK);
     struct QXLCursorCmd *cmd = (struct QXLCursorCmd *)info;
     struct QXLDrawable *drawable = (struct QXLDrawable *)info;
@@ -339,34 +339,31 @@ qxl_garbage_collect_internal (qxl_screen_t *qxl, uint64_t id)
     int is_cursor = FALSE;
     int is_surface = FALSE;
     int is_drawable = FALSE;
-    
+
     if ((id & POINTER_MASK) == 1)
 	is_cursor = TRUE;
     else if ((id & POINTER_MASK) == 2)
 	is_surface = TRUE;
     else
 	is_drawable = TRUE;
-    
+
     if (is_cursor && cmd->type == QXL_CURSOR_SET)
     {
-	struct QXLCursor *cursor;
-	
-	cursor = (void *)virtual_address (
+	struct QXLCursor *cursor = (void *)virtual_address (
 	    qxl, u64_to_pointer (cmd->u.set.shape), qxl->main_mem_slot);
-	qxl_free (qxl->mem, cursor);
+	
+	qxl_free (qxl->mem, cursor, "cursor image");
     }
     else if (is_drawable && drawable->type == QXL_DRAW_COPY)
     {
-	struct QXLImage *image;
-	
-	image = virtual_address (
-	    qxl, u64_to_pointer (drawable->u.copy.src_bitmap),
-	    qxl->main_mem_slot);
+	struct QXLImage *image = virtual_address (
+	    qxl, u64_to_pointer (drawable->u.copy.src_bitmap), qxl->main_mem_slot);
+
 	if (image->descriptor.type == SPICE_IMAGE_TYPE_SURFACE)
 	{
 	    qxl_surface_unref (qxl->surface_cache, image->surface_image.surface_id);
 	    qxl_surface_cache_sanity_check (qxl->surface_cache);
-	    qxl_free (qxl->mem, image);
+	    qxl_free (qxl->mem, image, "surface image");
 	}
 	else
 	{
@@ -378,10 +375,11 @@ qxl_garbage_collect_internal (qxl_screen_t *qxl, uint64_t id)
 	qxl_surface_recycle (qxl->surface_cache, surface_cmd->surface_id);
 	qxl_surface_cache_sanity_check (qxl->surface_cache);
     }
-    
+	    
     id = info->next;
-    qxl_free (qxl->mem, info);
-    
+	    
+    qxl_free (qxl->mem, info, "command");
+
     return id;
 }
 
@@ -421,7 +419,7 @@ qxl_handle_oom (qxl_screen_t *qxl)
 }
 
 void *
-qxl_allocnf (qxl_screen_t *qxl, unsigned long size)
+qxl_allocnf (qxl_screen_t *qxl, unsigned long size, const char *name)
 {
     void *result;
     int n_attempts = 0;
@@ -432,7 +430,7 @@ qxl_allocnf (qxl_screen_t *qxl, unsigned long size)
     
     qxl_garbage_collect (qxl);
     
-    while (!(result = qxl_alloc (qxl->mem, size)))
+    while (!(result = qxl_alloc (qxl->mem, size, name)))
     {
 #if 0
 	ErrorF ("eliminated memory (%d)\n", nth_oom++);
