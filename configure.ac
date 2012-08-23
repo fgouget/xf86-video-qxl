@@ -105,7 +105,7 @@ fi
 AM_CONDITIONAL(BUILD_XSPICE, test "x$enable_xspice" = "xyes")
 AM_CONDITIONAL(BUILD_QXL, test "x$enable_qxl" = "xyes")
 
-PKG_CHECK_MODULES([SPICE_PROTOCOL], [spice-protocol >= 0.8.1])
+PKG_CHECK_MODULES([SPICE_PROTOCOL], [spice-protocol >= 0.12.0])
 
 # AC_CHECK_FILE is not supported when cross compiling
 if test "$cross_compiling" = "no" ; then
