@@ -277,7 +277,7 @@ uxa_validate_gc(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
 		fbValidateGC(pGC, changes, pDrawable);
 	}
 
-	pGC->ops = (GCOps *) & uxa_ops;
+	pGC->ops = (GCOps *)&uxa_ops;
 }
 
 static GCFuncs uxaGCFuncs = {
