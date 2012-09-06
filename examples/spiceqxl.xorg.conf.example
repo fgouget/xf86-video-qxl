@@ -77,6 +77,8 @@ Section "Device"
     # This can dramatically reduce network bandwidth for some use cases.
     #Option "SpiceDeferredFPS" "10"
 
+    # If set, the Spice Server will exit when the first client disconnects
+    #Option "SpiceExitOnDisconnect" "1"
 EndSection
 
 Section "InputDevice"

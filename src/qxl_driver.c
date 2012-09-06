@@ -127,6 +127,8 @@ const OptionInfoRec DefaultOptions[] =
       "SpiceDhFile",              OPTV_STRING,    {0}, FALSE},
     { OPTION_SPICE_DEFERRED_FPS,
       "SpiceDeferredFPS",         OPTV_INTEGER,   {0}, FALSE},
+    { OPTION_SPICE_EXIT_ON_DISCONNECT,
+      "SpiceExitOnDisconnect",    OPTV_BOOLEAN,   {0}, FALSE},
 #endif
     
     { -1, NULL, OPTV_NONE, {0}, FALSE }

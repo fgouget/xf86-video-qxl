@@ -158,6 +158,9 @@ void xspice_set_spice_server_options(OptionInfoPtr options)
     int disable_copy_paste =
         get_bool_option(options, OPTION_SPICE_DISABLE_COPY_PASTE,
                         "XSPICE_DISABLE_COPY_PASTE");
+    int exit_on_disconnect =
+        get_bool_option(options, OPTION_SPICE_EXIT_ON_DISCONNECT,
+                        "XSPICE_EXIT_ON_DISCONNECT");
     const char *image_compression =
         get_str_option(options, OPTION_SPICE_IMAGE_COMPRESSION,
                        "XSPICE_IMAGE_COMPRESSION");
@@ -262,6 +265,15 @@ void xspice_set_spice_server_options(OptionInfoPtr options)
         spice_server_set_agent_copypaste(spice_server, 0);
     }
 #endif
+
+    if (exit_on_disconnect) {
+#if SPICE_SERVER_VERSION >= 0x000b04 /* 0.11.4 */
+        spice_server_set_exit_on_disconnect(spice_server, exit_on_disconnect);
+#else
+        fprintf(stderr, "spice: cannot set exit_on_disconnect (spice >= 0.11.4 required)\n");
+        exit(1);
+#endif
+    }
 
     compression = SPICE_IMAGE_COMPRESS_AUTO_GLZ;
     if (image_compression) {
