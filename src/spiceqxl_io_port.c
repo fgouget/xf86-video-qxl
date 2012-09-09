@@ -186,8 +186,8 @@ static void qxl_set_mode(qxl_screen_t *qxl, int modenr)
         .mem        = devmem + qxl->shadow_rom.draw_area_offset,
     };
 
-    dprint(1, "%s: mode %d  [ %d x %d @ %d bpp devmem 0x%lx ]\n", __FUNCTION__,
-           modenr, mode->x_res, mode->y_res, mode->bits, devmem);
+    dprint(1, "%s: mode %d  [ %d x %d @ %d bpp devmem 0x%llx ]\n", __FUNCTION__,
+           modenr, mode->x_res, mode->y_res, mode->bits, (unsigned long long) devmem);
     qxl_hard_reset(qxl);
 
     qxl->guest_primary.surface = surface;
