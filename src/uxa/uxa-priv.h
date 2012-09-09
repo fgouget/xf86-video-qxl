@@ -291,7 +291,7 @@ void
 uxa_get_image(DrawablePtr pDrawable, int x, int y, int w, int h,
 	      unsigned int format, unsigned long planeMask, char *d);
 
-extern const GCOps uxa_ops;
+extern GCOps uxa_ops;
 
 #ifdef RENDER
 

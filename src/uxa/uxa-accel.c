@@ -949,7 +949,7 @@ out:
 	REGION_DESTROY(pScreen, pReg);
 }
 
-const GCOps uxa_ops = {
+GCOps uxa_ops = {
 	uxa_fill_spans,
 	uxa_check_set_spans,
 	uxa_put_image,
