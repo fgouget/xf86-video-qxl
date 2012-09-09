@@ -91,6 +91,8 @@ qxl_ring_push (struct qxl_ring *ring,
     idx = header->prod & (ring->n_elements - 1);
     elt = ring->ring->elements + idx * ring->element_size;
 
+    /* TODO:  We should use proper MMIO accessors; the use of
+             volatile leads to a gcc warning.  See commit f7ba4bae */
     memcpy((void *)elt, new_elt, ring->element_size);
 
     header->prod++;
