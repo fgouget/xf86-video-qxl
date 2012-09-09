@@ -50,7 +50,7 @@ SpiceServer *xspice_get_spice_server(void)
 
 /* config string parsing */
 
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+#define SPICE_ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 static int name2enum(const char *string, const char *table[], int entries)
 {
@@ -88,7 +88,7 @@ static const char *stream_video_names[] = {
     [ SPICE_STREAM_VIDEO_FILTER ] = "filter",
 };
 #define parse_stream_video(_name) \
-    name2enum(_name, stream_video_names, ARRAY_SIZE(stream_video_names))
+    name2enum(_name, stream_video_names, SPICE_ARRAY_SIZE(stream_video_names))
 
 static const char *compression_names[] = {
     [ SPICE_IMAGE_COMPRESS_OFF ]      = "off",
@@ -100,7 +100,7 @@ static const char *compression_names[] = {
 };
 #define parse_compression(_name)                                        \
     parse_name(_name, "image compression",                              \
-               compression_names, ARRAY_SIZE(compression_names))
+               compression_names, SPICE_ARRAY_SIZE(compression_names))
 
 static const char *wan_compression_names[] = {
     [ SPICE_WAN_COMPRESSION_AUTO   ] = "auto",
@@ -109,7 +109,7 @@ static const char *wan_compression_names[] = {
 };
 #define parse_wan_compression(_name)                                    \
     parse_name(_name, "wan compression",                                \
-               wan_compression_names, ARRAY_SIZE(wan_compression_names))
+               wan_compression_names, SPICE_ARRAY_SIZE(wan_compression_names))
 
 void xspice_set_spice_server_options(OptionInfoPtr options)
 {

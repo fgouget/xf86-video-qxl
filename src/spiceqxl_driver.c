@@ -33,7 +33,7 @@
 #include "qxl.h"
 #include "spiceqxl_driver.h"
 
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+#define SPICE_ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 #define QXL_MODE_EX(x_res, y_res)                 \
     QXL_MODE_16_32(x_res, y_res, 0),              \
@@ -124,7 +124,7 @@ void init_qxl_rom(qxl_screen_t* qxl, uint32_t rom_size)
     rom->slots_end     = 1;
     rom->n_surfaces    = (NUM_SURFACES);
 
-    modes->n_modes     = (ARRAY_SIZE(qxl_modes));
+    modes->n_modes     = (SPICE_ARRAY_SIZE(qxl_modes));
     for (i = 0; i < modes->n_modes; i++) {
         fb = qxl_modes[i].y_res * qxl_modes[i].stride;
         if (maxfb < fb) {
