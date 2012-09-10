@@ -1622,28 +1622,9 @@ qxl_destroy_pixmap (PixmapPtr pixmap)
     return TRUE;
 }
 
-static Bool
-setup_uxa (qxl_screen_t *qxl, ScreenPtr screen)
+static void
+set_uxa_functions(qxl_screen_t *qxl, ScreenPtr screen)
 {
-    ScrnInfoPtr scrn = xf86ScreenToScrn (screen);
-    
-#if HAS_DIXREGISTERPRIVATEKEY
-    if (!dixRegisterPrivateKey (&uxa_pixmap_index, PRIVATE_PIXMAP, 0))
-	return FALSE;
-#else
-    if (!dixRequestPrivate (&uxa_pixmap_index, 0))
-	return FALSE;
-#endif
-    
-    qxl->uxa = uxa_driver_alloc ();
-    if (qxl->uxa == NULL)
-	return FALSE;
-    
-    memset (qxl->uxa, 0, sizeof (*qxl->uxa));
-    
-    qxl->uxa->uxa_major = 1;
-    qxl->uxa->uxa_minor = 0;
-    
     /* Solid fill */
     qxl->uxa->check_solid = qxl_check_solid;
     qxl->uxa->prepare_solid = qxl_prepare_solid;
@@ -1676,7 +1657,32 @@ setup_uxa (qxl_screen_t *qxl, ScreenPtr screen)
     screen->SetScreenPixmap = qxl_set_screen_pixmap;
     screen->CreatePixmap = qxl_create_pixmap;
     screen->DestroyPixmap = qxl_destroy_pixmap;
+}
+
+static Bool
+setup_uxa (qxl_screen_t *qxl, ScreenPtr screen)
+{
+    ScrnInfoPtr scrn = xf86ScreenToScrn (screen);
     
+#if HAS_DIXREGISTERPRIVATEKEY
+    if (!dixRegisterPrivateKey (&uxa_pixmap_index, PRIVATE_PIXMAP, 0))
+	return FALSE;
+#else
+    if (!dixRequestPrivate (&uxa_pixmap_index, 0))
+	return FALSE;
+#endif
+
+    qxl->uxa = uxa_driver_alloc ();
+    if (qxl->uxa == NULL)
+        return FALSE;
+
+    memset (qxl->uxa, 0, sizeof (*qxl->uxa));
+
+    qxl->uxa->uxa_major = 1;
+    qxl->uxa->uxa_minor = 0;
+
+    set_uxa_functions(qxl, screen);
+
     if (!uxa_driver_init (screen, qxl->uxa))
     {
 	xf86DrvMsg (scrn->scrnIndex, X_ERROR,
