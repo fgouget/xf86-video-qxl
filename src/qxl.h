@@ -127,6 +127,7 @@ enum {
     OPTION_SPICE_TLS_CIPHERS,
     OPTION_SPICE_CACERT_FILE,
     OPTION_SPICE_DH_FILE,
+    OPTION_SPICE_DEFERRED_FPS,
 #endif
     OPTION_COUNT,
 };
@@ -260,6 +261,8 @@ struct _qxl_screen_t
         uint32_t       bytes_pp;
         uint8_t        *data, *flipped;
     } guest_primary;
+
+    uint32_t           deferred_fps;
 #endif /* XSPICE */
 };
 

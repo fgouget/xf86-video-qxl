@@ -70,6 +70,13 @@ Section "Device"
     # Set to true to only listen on ipv6 interfaces.
     # defaults to false.
     #Option "SpiceIPV6Only" ""
+
+    # If non zero, the driver will render all operations to the frame buffer,
+    #  and keep track of a changed rectangle list.  The changed rectangles
+    #  will be transmitted at the rate requested (e.g. 10 Frames Per Second)
+    # This can dramatically reduce network bandwidth for some use cases.
+    #Option "SpiceDeferredFPS" "10"
+
 EndSection
 
 Section "InputDevice"

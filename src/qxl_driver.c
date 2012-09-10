@@ -124,6 +124,8 @@ const OptionInfoRec DefaultOptions[] =
       "SpiceCacertFile",          OPTV_STRING,    {0}, FALSE},
     { OPTION_SPICE_DH_FILE,
       "SpiceDhFile",              OPTV_STRING,    {0}, FALSE},
+    { OPTION_SPICE_DEFERRED_FPS,
+      "SpiceDeferredFPS",         OPTV_INTEGER,   {0}, FALSE},
 #endif
     
     { -1, NULL, OPTV_NONE, {0}, FALSE }
@@ -2415,6 +2417,14 @@ qxl_pre_init (ScrnInfoPtr pScrn, int flags)
     qxl->num_heads =
         get_int_option (qxl->options, OPTION_NUM_HEADS, "QXL_NUM_HEADS");
     
+#ifdef XSPICE
+    qxl->deferred_fps = get_int_option(qxl->options, OPTION_SPICE_DEFERRED_FPS, "XSPICE_DEFERRED_FPS");
+    if (qxl->deferred_fps > 0)
+        xf86DrvMsg(scrnIndex, X_INFO, "Deferred FPS: %d\n", qxl->deferred_fps);
+    else
+        xf86DrvMsg(scrnIndex, X_INFO, "Deferred Frames: Disabled\n");
+#endif
+
     xf86DrvMsg (scrnIndex, X_INFO, "Offscreen Surfaces: %s\n",
                 qxl->enable_surfaces ? "Enabled" : "Disabled");
     xf86DrvMsg (scrnIndex, X_INFO, "Image Cache: %s\n",
