@@ -438,6 +438,7 @@ qxl_surface_get_host_bits(qxl_surface_t *surface)
 {
     return (void *) pixman_image_get_data(surface->host_image);
 }
+
 static struct QXLSurfaceCmd *
 make_surface_cmd (surface_cache_t *cache, uint32_t id, QXLSurfaceCmdType type)
 {
@@ -1087,6 +1088,57 @@ upload_box (qxl_surface_t *surface, int x1, int y1, int x2, int y2)
 
 	    real_upload_box (surface, tile_x1, tile_y1, tile_x2, tile_y2);
 	}
+    }
+}
+
+static void
+upload_one_primary_region(qxl_screen_t *qxl, PixmapPtr pixmap, BoxPtr b)
+{
+    struct QXLRect rect;
+    struct QXLDrawable *drawable;
+    struct QXLImage *image;
+    FbBits *data;
+    int stride;
+    int bpp;
+
+    rect.left = b->x1;
+    rect.right = b->x2;
+    rect.top = b->y1;
+    rect.bottom = b->y2;
+
+    drawable = make_drawable (qxl, 0, QXL_DRAW_COPY, &rect);
+    drawable->u.copy.src_area = rect;
+    translate_rect (&drawable->u.copy.src_area);
+    drawable->u.copy.rop_descriptor = ROPD_OP_PUT;
+    drawable->u.copy.scale_mode = 0;
+    drawable->u.copy.mask.flags = 0;
+    drawable->u.copy.mask.pos.x = 0;
+    drawable->u.copy.mask.pos.y = 0;
+    drawable->u.copy.mask.bitmap = 0;
+
+    fbGetPixmapBitsData(pixmap, data, stride, bpp);
+    image = qxl_image_create (
+	qxl, (const uint8_t *)data, b->x1, b->y1, b->x2 - b->x1, b->y2 - b->y1, stride * sizeof(*data),
+	bpp == 24 ? 4 : bpp / 8, TRUE);
+    drawable->u.copy.src_bitmap =
+	physical_address (qxl, image, qxl->main_mem_slot);
+
+    push_drawable (qxl, drawable);
+}
+
+void
+qxl_surface_upload_primary_regions(qxl_screen_t *qxl, PixmapPtr pixmap, RegionRec *r)
+{
+    int n_boxes;
+    BoxPtr boxes;
+
+    n_boxes = RegionNumRects(r);
+    boxes = RegionRects(r);
+
+    while (n_boxes--)
+    {
+        upload_one_primary_region(qxl, pixmap, boxes);
+        boxes++;
     }
 }
 

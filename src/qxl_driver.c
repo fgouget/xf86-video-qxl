@@ -56,6 +56,7 @@
 #include "spiceqxl_inputs.h"
 #include "spiceqxl_io_port.h"
 #include "spiceqxl_spice_server.h"
+#include "dfps.h"
 #endif /* XSPICE */
 
 extern void compat_init_scrn (ScrnInfoPtr);
@@ -916,14 +917,10 @@ set_screen_pixmap_header (ScreenPtr pScreen)
     
     if (pPixmap)
     {
-	ErrorF ("new stride: %d (display width: %d, bpp: %d)\n",
-	        qxl->pScrn->displayWidth * qxl->bytes_per_pixel,
-	        qxl->pScrn->displayWidth, qxl->bytes_per_pixel);
-	
 	pScreen->ModifyPixmapHeader (pPixmap,
 	                             qxl->primary_mode.x_res, qxl->primary_mode.y_res,
 	                             -1, -1,
-	                             qxl->pScrn->displayWidth * qxl->bytes_per_pixel,
+	                             qxl->primary_mode.x_res * qxl->bytes_per_pixel,
 	                             qxl_surface_get_host_bits(qxl->primary));
     }
     else
@@ -953,7 +950,7 @@ qxl_resize_primary_to_virtual (qxl_screen_t *qxl)
 {
     ScreenPtr pScreen;
     long new_surface0_size;
-    
+
     if ((qxl->primary_mode.x_res == qxl->virtual_x &&
          qxl->primary_mode.y_res == qxl->virtual_y) &&
         qxl->device_primary == QXL_DEVICE_PRIMARY_CREATED)
@@ -989,12 +986,18 @@ qxl_resize_primary_to_virtual (qxl_screen_t *qxl)
     if (pScreen)
     {
 	PixmapPtr root = pScreen->GetScreenPixmap (pScreen);
-	qxl_surface_t *surf;
-	
-	if ((surf = get_surface (root)))
-	    qxl_surface_kill (surf);
-	
-	set_surface (root, qxl->primary);
+
+#ifdef XSPICE
+        if (qxl->deferred_fps <= 0)
+#endif
+        {
+            qxl_surface_t *surf;
+
+            if ((surf = get_surface (root)))
+                qxl_surface_kill (surf);
+            
+            set_surface (root, qxl->primary);
+        }
 
         set_screen_pixmap_header (pScreen);
     }
@@ -1208,14 +1211,19 @@ qxl_create_screen_resources (ScreenPtr pScreen)
 	return FALSE;
     
     pPixmap = pScreen->GetScreenPixmap (pScreen);
-    
-    set_screen_pixmap_header (pScreen);
-    
-    if ((surf = get_surface (pPixmap)))
-	qxl_surface_kill (surf);
-    
-    set_surface (pPixmap, qxl->primary);
-    
+
+#ifdef XSPICE
+    if (qxl->deferred_fps <= 0)
+#endif
+    {
+        set_screen_pixmap_header (pScreen);
+
+        if ((surf = get_surface (pPixmap)))
+            qxl_surface_kill (surf);
+
+        set_surface (pPixmap, qxl->primary);
+    }
+
     /* HACK - I don't want to enable any crtcs other then the first at the beginning */
     for (i = 1; i < qxl->num_heads; ++i)
     {
@@ -1681,7 +1689,12 @@ setup_uxa (qxl_screen_t *qxl, ScreenPtr screen)
     qxl->uxa->uxa_major = 1;
     qxl->uxa->uxa_minor = 0;
 
-    set_uxa_functions(qxl, screen);
+#ifdef XSPICE
+    if (qxl->deferred_fps)
+        dfps_set_uxa_functions(qxl, screen);
+    else
+#endif
+        set_uxa_functions(qxl, screen);
 
     if (!uxa_driver_init (screen, qxl->uxa))
     {
@@ -1708,18 +1721,21 @@ setup_uxa (qxl_screen_t *qxl, ScreenPtr screen)
 static void
 spiceqxl_screen_init (ScrnInfoPtr pScrn, qxl_screen_t *qxl)
 {
-    SpiceCoreInterface *core;
-    
     // Init spice
     if (!qxl->spice_server)
     {
 	qxl->spice_server = xspice_get_spice_server ();
 	xspice_set_spice_server_options (qxl->options);
-	core = basic_event_loop_init ();
-	spice_server_init (qxl->spice_server, core);
+	qxl->core = basic_event_loop_init ();
+	spice_server_init (qxl->spice_server, qxl->core);
 	qxl_add_spice_display_interface (qxl);
 	qxl->worker->start (qxl->worker);
 	qxl->worker_running = TRUE;
+        if (qxl->deferred_fps)
+        {
+            qxl->frames_timer = qxl->core->timer_add(dfps_ticker, qxl);
+            qxl->core->timer_start(qxl->frames_timer, 1000 / qxl->deferred_fps);
+        }
     }
     qxl->spice_server = qxl->spice_server;
 }
@@ -1930,11 +1946,14 @@ qxl_leave_vt (VT_FUNC_ARGS_DECL)
     qxl_screen_t *qxl = pScrn->driverPrivate;
     
     xf86_hide_cursors (pScrn);
-    
+
     pScrn->EnableDisableFBAccess (XF86_SCRN_ARG (pScrn), FALSE);
-    
-    qxl->vt_surfaces = qxl_surface_cache_evacuate_all (qxl->surface_cache);
-    
+
+#ifdef XSPICE
+    if (qxl->deferred_fps <= 0)
+#endif
+        qxl->vt_surfaces = qxl_surface_cache_evacuate_all (qxl->surface_cache);
+
     ioport_write (qxl, QXL_IO_RESET, 0);
     
     qxl_restore_state (pScrn);

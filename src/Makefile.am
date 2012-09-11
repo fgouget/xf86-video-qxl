@@ -90,5 +90,6 @@ spiceqxl_drv_la_SOURCES =				\
 	murmurhash3.h				\
 	qxl_cursor.c				\
 	qxl_edid.c				\
+	dfps.c				        \
 	compat-api.h
 endif

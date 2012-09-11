@@ -240,6 +240,9 @@ struct _qxl_screen_t
     /* XSpice specific */
     struct QXLRom		shadow_rom;    /* Parameter RAM */
     SpiceServer *       spice_server;
+    SpiceCoreInterface *core;
+    SpiceTimer *        frames_timer;
+
     QXLWorker *         worker;
     int                 worker_running;
     QXLInstance         display_sin;
@@ -438,6 +441,8 @@ get_ram_header (qxl_screen_t *qxl)
     return (struct QXLRam *)
 	((uint8_t *)qxl->ram + qxl->rom->ram_header_offset);
 }
+
+void qxl_surface_upload_primary_regions(qxl_screen_t *qxl, PixmapPtr pixmap, RegionRec *r);
 
 /*
  * Images
