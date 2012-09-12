@@ -47,6 +47,7 @@
 #include "qxl.h"
 #include "assert.h"
 #include "qxl_option_helpers.h"
+#include <spice/protocol.h>
 
 #ifdef XSPICE
 #include "spiceqxl_driver.h"
@@ -1378,6 +1379,25 @@ can_accelerate_picture (PicturePtr pict)
     return TRUE;
 }
 
+#define QXL_HAS_CAP(qxl, cap)						\
+    (((qxl)->rom->client_capabilities[(cap) / 8]) & (1 << ((cap) % 8)))
+
+static Bool
+qxl_has_composite (qxl_screen_t *qxl)
+{
+    return
+	qxl->pci->revision >= 4			&&
+	QXL_HAS_CAP (qxl, SPICE_DISPLAY_CAP_COMPOSITE);
+}
+
+static Bool
+qxl_has_a8_surfaces (qxl_screen_t *qxl)
+{
+    return
+	qxl->pci->revision >= 4			&&
+	QXL_HAS_CAP (qxl, SPICE_DISPLAY_CAP_A8_SURFACE);
+}
+
 static Bool
 qxl_check_composite (int op,
 		     PicturePtr pSrcPicture,
@@ -1386,7 +1406,10 @@ qxl_check_composite (int op,
 		     int width, int height)
 {
     int i;
-
+    ScreenPtr pScreen = pDstPicture->pDrawable->pScreen;
+    ScrnInfoPtr pScrn = xf86ScreenToScrn (pScreen);
+    qxl_screen_t *qxl = pScrn->driverPrivate;
+    
     static const int accelerated_ops[] =
     {
 	PictOpClear, PictOpSrc, PictOpDst, PictOpOver, PictOpOverReverse,
@@ -1397,6 +1420,9 @@ qxl_check_composite (int op,
 	PictOpHardLight, PictOpSoftLight, PictOpDifference, PictOpExclusion,
 	PictOpHSLHue, PictOpHSLSaturation, PictOpHSLColor, PictOpHSLLuminosity,
     };
+
+    if (!qxl_has_composite (qxl))
+	return FALSE;
     
     if (!can_accelerate_picture (pSrcPicture)	||
 	!can_accelerate_picture (pMaskPicture)	||
@@ -1502,6 +1528,15 @@ qxl_create_pixmap (ScreenPtr screen, int w, int h, int depth, unsigned usage)
     
     if (uxa_swapped_out (screen))
 	goto fallback;
+
+    if (depth == 8 && !qxl_has_a8_surfaces (qxl))
+    {
+	/* FIXME: When we detect a _change_ in the property of having a8
+	 * surfaces, we should copy all existing a8 surface to host memory
+	 * and then destroy the ones on the device.
+	 */
+	goto fallback;
+    }
     
     surface = qxl_surface_create (qxl->surface_cache, w, h, depth);
     
