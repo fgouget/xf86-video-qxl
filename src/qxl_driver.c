@@ -1821,10 +1821,14 @@ qxl_screen_init (SCREEN_INIT_ARGS_DECL)
     DamageSetup (pScreen);
     
     /* We need to set totalPixmapSize after setup_uxa and Damage,
-     * as the privatssize is not computed correctly until then
+       as the privates size is not computed correctly until then
      */
+#if (XORG_VERSION_CURRENT < XORG_VERSION_NUMERIC(1, 12, 99, 901, 0))
+    pScreen->totalPixmapSize = BitmapBytePad ((sizeof (PixmapRec) + dixPrivatesSize (PRIVATE_PIXMAP) ) * 8);
+#else
     pScreen->totalPixmapSize = BitmapBytePad((sizeof(PixmapRec) +
 			    dixScreenSpecificPrivatesSize(pScreen, PRIVATE_PIXMAP) ) * 8);
+#endif
 
     miDCInitialize (pScreen, xf86GetPointerScreenFuncs());
     if (!miCreateDefColormap (pScreen))
