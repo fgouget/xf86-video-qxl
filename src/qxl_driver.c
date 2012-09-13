@@ -881,9 +881,6 @@ qxl_close_screen (CLOSE_SCREEN_ARGS_DECL)
 #else
     pScrn->EnableDisableFBAccess (pScrn, FALSE);
 #endif
-    ErrorF ("Freeing %p\n", qxl->fb);
-    free (qxl->fb);
-    qxl->fb = NULL;
     
     pScreen->CreateScreenResources = qxl->create_screen_resources;
     pScreen->CloseScreen = qxl->close_screen;
@@ -925,12 +922,28 @@ set_screen_pixmap_header (ScreenPtr pScreen)
 	                             qxl->primary_mode.x_res, qxl->primary_mode.y_res,
 	                             -1, -1,
 	                             qxl->pScrn->displayWidth * qxl->bytes_per_pixel,
-	                             NULL);
+	                             qxl_surface_get_host_bits(qxl->primary));
     }
     else
     {
 	ErrorF ("pix: %p;\n", pPixmap);
     }
+}
+
+static qxl_surface_t *
+qxl_create_primary(qxl_screen_t *qxl)
+{
+    struct QXLMode *pm = &qxl->primary_mode;
+    pm->id = 0x4242;
+    pm->x_res = qxl->virtual_x;
+    pm->y_res = qxl->virtual_y;
+    pm->bits = qxl->pScrn->bitsPerPixel;
+    pm->stride = qxl->virtual_x * pm->bits / 8;
+    pm->x_mili = 0; // TODO
+    pm->y_mili = 0; // TODO
+    pm->orientation = 0; // ? supported by us for single head usage? more TODO
+
+    return qxl_surface_cache_create_primary (qxl->surface_cache, &qxl->primary_mode);
 }
 
 static Bool
@@ -967,18 +980,7 @@ qxl_resize_primary_to_virtual (qxl_screen_t *qxl)
 	qxl_io_destroy_primary (qxl);
     }
     
-    {
-	struct QXLMode *pm = &qxl->primary_mode;
-	pm->id = 0x4242;
-	pm->x_res = qxl->virtual_x;
-	pm->y_res = qxl->virtual_y;
-	pm->bits = qxl->pScrn->bitsPerPixel;
-	pm->stride = qxl->virtual_x * pm->bits / 8;
-	pm->x_mili = 0; // TODO
-	pm->y_mili = 0; // TODO
-	pm->orientation = 0; // ? supported by us for single head usage? more TODO
-    }
-    qxl->primary = qxl_surface_cache_create_primary (qxl->surface_cache, &qxl->primary_mode);
+    qxl->primary = qxl_create_primary(qxl);
     qxl->bytes_per_pixel = (qxl->pScrn->bitsPerPixel + 7) / 8;
     
     pScreen = qxl->pScrn->pScreen;
@@ -991,6 +993,8 @@ qxl_resize_primary_to_virtual (qxl_screen_t *qxl)
 	    qxl_surface_kill (surf);
 	
 	set_surface (root, qxl->primary);
+
+        set_screen_pixmap_header (pScreen);
     }
     
     ErrorF ("primary is %p\n", qxl->primary);
@@ -1718,12 +1722,8 @@ static Bool
 qxl_fb_init (qxl_screen_t *qxl, ScreenPtr pScreen)
 {
     ScrnInfoPtr pScrn = qxl->pScrn;
-    
-#if 0
-    ErrorF ("allocated %d x %d  %p\n", pScrn->virtualX, pScrn->virtualY, qxl->fb);
-#endif
-    
-    if (!fbScreenInit (pScreen, NULL,
+   
+    if (!fbScreenInit (pScreen, qxl_surface_get_host_bits(qxl->primary),
                        pScrn->virtualX, pScrn->virtualY,
                        pScrn->xDpi, pScrn->yDpi, pScrn->displayWidth,
                        pScrn->bitsPerPixel))
@@ -1767,16 +1767,19 @@ qxl_screen_init (SCREEN_INIT_ARGS_DECL)
 	goto out;
     pScrn->displayWidth = pScrn->virtualX;
     
-    qxl->fb = calloc (pScrn->virtualY * pScrn->displayWidth, 4);
-    if (!qxl->fb)
-	goto out;
-    
 #if 0
     ErrorF ("allocated %d x %d  %p\n", pScrn->virtualX, pScrn->virtualY, qxl->fb);
 #endif
-    
+   
     pScrn->virtualX = pScrn->currentMode->HDisplay;
     pScrn->virtualY = pScrn->currentMode->VDisplay;
+
+    /* Set up resources */
+    qxl_reset_and_create_mem_slots (qxl);
+    ErrorF ("done reset\n");
+
+    qxl->surface_cache = qxl_surface_cache_create (qxl);
+    qxl->primary = qxl_create_primary(qxl);
     
     if (!qxl_fb_init (qxl, pScreen))
 	goto out;
@@ -1797,10 +1800,6 @@ qxl_screen_init (SCREEN_INIT_ARGS_DECL)
     
     qxl->uxa = uxa_driver_alloc ();
     
-    /* Set up resources */
-    qxl_reset_and_create_mem_slots (qxl);
-    ErrorF ("done reset\n");
-    
 #ifndef XSPICE
     qxl->io_pages = (void *)((unsigned long)qxl->ram);
     qxl->io_pages_physical = (void *)((unsigned long)qxl->ram_physical);
@@ -1815,8 +1814,6 @@ qxl_screen_init (SCREEN_INIT_ARGS_DECL)
     qxl->release_ring = qxl_ring_create ((struct qxl_ring_header *)&(ram_header->release_ring),
                                          sizeof (uint64_t),
                                          QXL_RELEASE_RING_SIZE, 0, qxl);
-    
-    qxl->surface_cache = qxl_surface_cache_create (qxl);
     
     /* xf86DPMSInit (pScreen, xf86DPMSSet, 0); */
     

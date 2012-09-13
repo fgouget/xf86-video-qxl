@@ -404,15 +404,9 @@ qxl_surface_cache_create_primary (surface_cache_t	*cache,
     dev_image = pixman_image_create_bits (format, mode->x_res, mode->y_res,
 					  (uint32_t *)dev_addr, -mode->stride);
 
-    if (qxl->fb != NULL)
-        free(qxl->fb);
-    qxl->fb = calloc (qxl->virtual_x * qxl->virtual_y, 4);
-    if (!qxl->fb)
-        return NULL;
-
     host_image = pixman_image_create_bits (format, 
 					   qxl->virtual_x, qxl->virtual_y,
-					   qxl->fb, mode->stride);
+					   NULL, mode->stride);
 #if 0
     xf86DrvMsg(cache->qxl->pScrn->scrnIndex, X_ERROR,
                "testing dev_image memory (%d x %d)\n",
@@ -439,6 +433,11 @@ qxl_surface_cache_create_primary (surface_cache_t	*cache,
     return surface;
 }
 
+void *
+qxl_surface_get_host_bits(qxl_surface_t *surface)
+{
+    return (void *) pixman_image_get_data(surface->host_image);
+}
 static struct QXLSurfaceCmd *
 make_surface_cmd (surface_cache_t *cache, uint32_t id, QXLSurfaceCmdType type)
 {

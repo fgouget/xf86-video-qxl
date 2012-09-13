@@ -164,7 +164,6 @@ struct _qxl_screen_t
 
     int				virtual_x;
     int				virtual_y;
-    void *			fb;
 
     /* not the same as the heads mode for #head > 1 or virtual != head size */
     struct QXLMode 		primary_mode;
@@ -342,6 +341,7 @@ int               qxl_ring_cons        (struct qxl_ring        *ring);
 surface_cache_t *   qxl_surface_cache_create (qxl_screen_t *qxl);
 qxl_surface_t *	    qxl_surface_cache_create_primary (surface_cache_t *qxl,
 						struct QXLMode *mode);
+void *              qxl_surface_get_host_bits(qxl_surface_t *surface);
 qxl_surface_t *	    qxl_surface_create (surface_cache_t *qxl,
 					int	      width,
 					int	      height,
