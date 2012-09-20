@@ -142,6 +142,16 @@ static Bool dfps_prepare_copy (PixmapPtr source, PixmapPtr dest,
         return FALSE;
 
     info->copy_src = source;
+
+    info->pgc = GetScratchGC(dest->drawable.depth, dest->drawable.pScreen);
+    if (! info->pgc)
+        return FALSE;
+
+    info->pgc->alu = alu;
+    info->pgc->planemask = planemask;
+
+    fbValidateGC(info->pgc, GCPlaneMask, &dest->drawable);
+
     return TRUE;
 }
 
@@ -153,7 +163,6 @@ static void dfps_copy (PixmapPtr dest,
     struct pixman_box16 box;
     RegionPtr region;
     Bool throwaway_bool;
-    GCPtr pgc;
 
     dfps_info_t *info;
 
@@ -161,10 +170,7 @@ static void dfps_copy (PixmapPtr dest,
         return;
 
     /* Render into to the frame buffer */
-    pgc = GetScratchGC(dest->drawable.depth, dest->drawable.pScreen);
-    ValidateGC(&dest->drawable, pgc);
-    fbCopyArea(&info->copy_src->drawable, &dest->drawable, pgc, src_x1, src_y1, width, height, dest_x1, dest_y1);
-    FreeScratchGC(pgc);
+    fbCopyArea(&info->copy_src->drawable, &dest->drawable, info->pgc, src_x1, src_y1, width, height, dest_x1, dest_y1);
 
     /* Update the tracking region */
     box.x1 = dest_x1; box.x2 = dest_x1 + width; box.y1 = dest_y1; box.y2 = dest_y1 + height;
@@ -176,6 +182,13 @@ static void dfps_copy (PixmapPtr dest,
 
 static void dfps_done_copy (PixmapPtr dest)
 {
+    dfps_info_t *info;
+
+    if ((info = dfps_get_info (dest)))
+    {
+        FreeScratchGC(info->pgc);
+        info->pgc = NULL;
+    }
 }
 
 static Bool dfps_put_image (PixmapPtr dest, int x, int y, int w, int h,
