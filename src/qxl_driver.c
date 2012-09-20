@@ -1385,17 +1385,27 @@ can_accelerate_picture (PicturePtr pict)
 static Bool
 qxl_has_composite (qxl_screen_t *qxl)
 {
+#ifndef XSPICE
     return
 	qxl->pci->revision >= 4			&&
 	QXL_HAS_CAP (qxl, SPICE_DISPLAY_CAP_COMPOSITE);
+#else
+    /* FIXME */
+    return FALSE;
+#endif
 }
 
 static Bool
 qxl_has_a8_surfaces (qxl_screen_t *qxl)
 {
+#ifndef XSPICE
     return
 	qxl->pci->revision >= 4			&&
 	QXL_HAS_CAP (qxl, SPICE_DISPLAY_CAP_A8_SURFACE);
+#else
+    /* FIXME */
+    return FALSE;
+#endif
 }
 
 static Bool
