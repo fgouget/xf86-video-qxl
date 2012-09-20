@@ -50,6 +50,7 @@ struct dfps_info_t
 
     PixmapPtr   copy_src;
     Pixel       solid_pixel;
+    GCPtr       pgc;
 };
 
 void dfps_ticker(void *opaque)
@@ -84,16 +85,22 @@ static Bool dfps_prepare_solid (PixmapPtr pixmap, int alu, Pixel planemask, Pixe
         return FALSE;
 
     info->solid_pixel = fg;
+    info->pgc = GetScratchGC(pixmap->drawable.depth, pixmap->drawable.pScreen);
+    if (! info->pgc)
+        return FALSE;
+
+    info->pgc->alu = alu;
+    info->pgc->planemask = planemask;
+    info->pgc->fgPixel = fg;
+    info->pgc->fillStyle = FillSolid;
+
+    fbValidateGC(info->pgc, GCForeground | GCPlaneMask, &pixmap->drawable);
 
     return TRUE;
 }
 
 static void dfps_solid (PixmapPtr pixmap, int x_1, int y_1, int x_2, int y_2)
 {
-    FbBits *bits;
-    int stride;
-    int bpp;
-    int xoff, yoff;
     struct pixman_box16 box;
     RegionPtr region;
     Bool throwaway_bool;
@@ -103,10 +110,7 @@ static void dfps_solid (PixmapPtr pixmap, int x_1, int y_1, int x_2, int y_2)
         return;
 
     /* Draw to the frame buffer */
-    fbGetDrawable((DrawablePtr)pixmap, bits, stride, bpp, xoff, yoff);
-    pixman_fill((uint32_t *) bits, stride, bpp, x_1 + xoff, y_1 + yoff, x_2 - x_1, y_2 - y_1, info->solid_pixel);
-    fbValidateDrawable(pixmap);
-    fbFinishAccess(pixmap);
+    fbFill(&pixmap->drawable, info->pgc, x_1, y_1, x_2 - x_1, y_2 - y_1);
 
     /* Track the updated region */
     box.x1 = x_1; box.x2 = x_2; box.y1 = y_1; box.y2 = y_2;
@@ -119,6 +123,13 @@ static void dfps_solid (PixmapPtr pixmap, int x_1, int y_1, int x_2, int y_2)
 
 static void dfps_done_solid (PixmapPtr pixmap)
 {
+    dfps_info_t *info;
+
+    if ((info = dfps_get_info (pixmap)))
+    {
+        FreeScratchGC(info->pgc);
+        info->pgc = NULL;
+    }
 }
 
 static Bool dfps_prepare_copy (PixmapPtr source, PixmapPtr dest,
