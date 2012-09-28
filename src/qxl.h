@@ -37,7 +37,9 @@
 #endif
 #include "xf86Cursor.h"
 #include "xf86_OSproc.h"
+#ifdef XV
 #include "xf86xv.h"
+#endif
 #include "xf86Crtc.h"
 #include "shadow.h"
 #include "micmap.h"
