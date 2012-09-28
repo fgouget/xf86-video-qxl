@@ -61,7 +61,7 @@ spiceqxl_drv_ladir = @moduledir@/drivers
 
 spiceqxl_drv_la_CFLAGS = -DXSPICE $(AM_CFLAGS) $(SPICE_CFLAGS)
 
-spiceqxl_drv_la_LIBADD = uxa/libuxa.la
+spiceqxl_drv_la_LIBADD = uxa/libuxa.la $(XORG_LIBS)
 
 spiceqxl_drv_la_SOURCES =				\
 	qxl.h					\
