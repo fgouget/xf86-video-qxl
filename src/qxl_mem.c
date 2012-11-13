@@ -56,7 +56,7 @@ qxl_mem_unverifiable(struct qxl_mem *mem)
 }
 #endif
 
-static void
+static void __attribute__ ((format (gnu_printf, 2, 3)))
 errout (void *data, const char *format, ...)
 {
     va_list va;
@@ -66,6 +66,19 @@ errout (void *data, const char *format, ...)
     VErrorF (format, va);
 
     va_end (va);
+}
+
+static void __attribute__ ((__noreturn__))
+qxl_mspace_abort_func (void *user_data)
+{
+    abort ();
+}
+
+void
+qxl_mem_init(void)
+{
+    mspace_set_print_func (errout);
+    mspace_set_abort_func (qxl_mspace_abort_func);
 }
 
 struct qxl_mem *
@@ -80,7 +93,6 @@ qxl_mem_create       (void                   *base,
 
     ErrorF ("memory space from %p to %p\n", base, (char *)base + n_bytes);
 
-    mspace_set_print_func (errout);
     
     mem->space = create_mspace_with_base (base, n_bytes, 0, NULL);
     

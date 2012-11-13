@@ -42,8 +42,6 @@
 #include <xf86Crtc.h>
 #include <xf86RandR12.h>
 
-#include "mspace.h"
-
 #include "qxl.h"
 #include "assert.h"
 #include "qxl_option_helpers.h"
@@ -270,22 +268,6 @@ qxl_unmap_memory (qxl_screen_t *qxl)
     
     qxl->num_modes = 0;
     qxl->modes = NULL;
-}
-
-static void __attribute__ ((__noreturn__))
-qxl_mspace_abort_func (void *user_data)
-{
-    abort ();
-}
-
-static void __attribute__ ((format (gnu_printf, 2, 3)))
-qxl_mspace_print_func (void *user_data, const char *format, ...)
-{
-    va_list args;
-    
-    va_start (args, format);
-    VErrorF (format, args);
-    va_end (args);
 }
 
 #ifdef QXLDRV_RESIZABLE_SURFACE0
@@ -986,8 +968,7 @@ qxl_pre_init (ScrnInfoPtr pScrn, int flags)
     
     CHECK_POINT ();
     
-    mspace_set_abort_func (qxl_mspace_abort_func);
-    mspace_set_print_func (qxl_mspace_print_func);
+    qxl_mem_init();
     
     /* zaphod mode is for suckers and i choose not to implement it */
     if (xf86IsEntityShared (pScrn->entityList[0]))

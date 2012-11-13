@@ -478,6 +478,7 @@ void		  qxl_drop_image_cache (qxl_screen_t	       *qxl);
 /*
  * Malloc
  */
+void              qxl_mem_init(void);
 int		  qxl_handle_oom (qxl_screen_t *qxl);
 struct qxl_mem *  qxl_mem_create       (void                   *base,
 					unsigned long           n_bytes);
