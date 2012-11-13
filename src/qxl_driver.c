@@ -142,7 +142,7 @@ qxl_available_options (int chipid, int busid)
  */
 #define MAX_MONITORS_NUM 16
 
-static void
+void
 qxl_allocate_monitors_config (qxl_screen_t *qxl)
 {
     qxl->monitors_config = (QXLMonitorsConfig *)(void *)
@@ -608,86 +608,6 @@ qxl_restore_state (ScrnInfoPtr pScrn)
 }
 
 #endif /* XSPICE */
-
-static uint8_t
-setup_slot (qxl_screen_t *qxl, uint8_t slot_index_offset,
-            unsigned long start_phys_addr, unsigned long end_phys_addr,
-            uint64_t start_virt_addr, uint64_t end_virt_addr)
-{
-    uint64_t       high_bits;
-    qxl_memslot_t *slot;
-    uint8_t        slot_index;
-    struct QXLRam *ram_header;
-    
-    ram_header = (void *)((unsigned long)qxl->ram + (unsigned long)qxl->rom->ram_header_offset);
-    
-    slot_index = qxl->rom->slots_start + slot_index_offset;
-    slot = &qxl->mem_slots[slot_index];
-    slot->start_phys_addr = start_phys_addr;
-    slot->end_phys_addr = end_phys_addr;
-    slot->start_virt_addr = start_virt_addr;
-    slot->end_virt_addr = end_virt_addr;
-    
-    ram_header->mem_slot.mem_start = slot->start_phys_addr;
-    ram_header->mem_slot.mem_end = slot->end_phys_addr;
-    
-    qxl_io_memslot_add (qxl, slot_index);
-    
-    slot->generation = qxl->rom->slot_generation;
-    
-    high_bits = slot_index << qxl->slot_gen_bits;
-    high_bits |= slot->generation;
-    high_bits <<= (64 - (qxl->slot_gen_bits + qxl->slot_id_bits));
-    slot->high_bits = high_bits;
-    
-    return slot_index;
-}
-
-static void
-qxl_reset_and_create_mem_slots (qxl_screen_t *qxl)
-{
-    ioport_write (qxl, QXL_IO_RESET, 0);
-    qxl->device_primary = QXL_DEVICE_PRIMARY_NONE;
-    /* Mem slots */
-    ErrorF ("slots start: %d, slots end: %d\n",
-            qxl->rom->slots_start,
-            qxl->rom->slots_end);
-    
-    /* Main slot */
-    qxl->n_mem_slots = qxl->rom->slots_end;
-    qxl->slot_gen_bits = qxl->rom->slot_gen_bits;
-    qxl->slot_id_bits = qxl->rom->slot_id_bits;
-    qxl->va_slot_mask = (~(uint64_t)0) >> (qxl->slot_id_bits + qxl->slot_gen_bits);
-    
-    qxl->mem_slots = xnfalloc (qxl->n_mem_slots * sizeof (qxl_memslot_t));
-    
-#ifdef XSPICE
-    qxl->main_mem_slot = qxl->vram_mem_slot = setup_slot (qxl, 0, 0, ~0, 0, ~0);
-#else /* QXL */
-    qxl->main_mem_slot = setup_slot (qxl, 0,
-                                     (unsigned long)qxl->ram_physical,
-                                     (unsigned long)qxl->ram_physical + qxl->surface0_size +
-                                     (unsigned long)qxl->rom->num_pages * getpagesize (),
-                                     (uint64_t)(uintptr_t)qxl->ram,
-                                     (uint64_t)(uintptr_t)qxl->ram + qxl->surface0_size +
-                                     (unsigned long)qxl->rom->num_pages * getpagesize ()
-	);
-    qxl->vram_mem_slot = setup_slot (qxl, 1,
-                                     (unsigned long)qxl->vram_physical,
-                                     (unsigned long)qxl->vram_physical + (unsigned long)qxl->vram_size,
-                                     (uint64_t)(uintptr_t)qxl->vram,
-                                     (uint64_t)(uintptr_t)qxl->vram + (uint64_t)qxl->vram_size);
-#endif
-
-    qxl_allocate_monitors_config(qxl);
-}
-
-static void
-qxl_mark_mem_unverifiable (qxl_screen_t *qxl)
-{
-    qxl_mem_unverifiable (qxl->mem);
-    qxl_mem_unverifiable (qxl->surf_mem);
-}
 
 static Bool
 qxl_close_screen (CLOSE_SCREEN_ARGS_DECL)

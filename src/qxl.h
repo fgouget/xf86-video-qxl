@@ -457,6 +457,7 @@ Bool qxl_create_desired_modes (qxl_screen_t *qxl);
 
 Bool qxl_resize_primary (qxl_screen_t *qxl, uint32_t width, uint32_t height);
 void qxl_io_monitors_config_async (qxl_screen_t *qxl);
+void qxl_allocate_monitors_config (qxl_screen_t *qxl);
 /*
  * Images
  */
@@ -494,6 +495,8 @@ void *            qxl_allocnf          (qxl_screen_t           *qxl,
 					const char *            name);
 int		   qxl_garbage_collect (qxl_screen_t *qxl);
 
+void qxl_reset_and_create_mem_slots (qxl_screen_t *qxl);
+void qxl_mark_mem_unverifiable (qxl_screen_t *qxl);
 #ifdef DEBUG_QXL_MEM
 void qxl_mem_unverifiable(struct qxl_mem *mem);
 #else
