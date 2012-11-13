@@ -448,6 +448,15 @@ get_ram_header (qxl_screen_t *qxl)
 
 void qxl_surface_upload_primary_regions(qxl_screen_t *qxl, PixmapPtr pixmap, RegionRec *r);
 
+/* ums randr code */
+void qxl_init_randr (ScrnInfoPtr pScrn, qxl_screen_t *qxl);
+void qxl_initialize_x_modes (qxl_screen_t *qxl, ScrnInfoPtr pScrn,
+                        unsigned int *max_x, unsigned int *max_y);
+void qxl_update_edid (qxl_screen_t *qxl);
+Bool qxl_create_desired_modes (qxl_screen_t *qxl);
+
+Bool qxl_resize_primary (qxl_screen_t *qxl, uint32_t width, uint32_t height);
+void qxl_io_monitors_config_async (qxl_screen_t *qxl);
 /*
  * Images
  */
@@ -540,5 +549,12 @@ static inline void ioport_write(qxl_screen_t *qxl, int port, int val)
 SpiceServer *xspice_get_spice_server(void);
 
 #endif /* XSPICE */
+
+#ifdef WITH_CHECK_POINT
+#define CHECK_POINT() ErrorF ("%s: %d  (%s)\n", __FILE__, __LINE__, __FUNCTION__);
+#else
+#define CHECK_POINT()
+#endif
+
 
 #endif // QXL_H

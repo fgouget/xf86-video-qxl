@@ -52,7 +52,8 @@ qxl_drv_la_SOURCES =				\
 	qxl_option_helpers.h		\
 	qxl_edid.c			\
 	qxl_uxa.c			\
-	compat-api.h
+	qxl_ums_mode.c                     \
+	compat-api.h 
 endif
 
 if BUILD_XSPICE
@@ -93,5 +94,6 @@ spiceqxl_drv_la_SOURCES =				\
 	qxl_edid.c				\
 	dfps.c				        \
 	qxl_uxa.c                               \
+	qxl_ums_mode.c                     	\
 	compat-api.h
 endif
