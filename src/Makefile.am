@@ -52,7 +52,8 @@ qxl_drv_la_SOURCES =				\
 	qxl_option_helpers.h		\
 	qxl_edid.c			\
 	qxl_uxa.c			\
-	qxl_ums_mode.c                     \
+	qxl_ums_mode.c                  \
+	qxl_io.c                        \
 	compat-api.h 
 endif
 
@@ -95,5 +96,6 @@ spiceqxl_drv_la_SOURCES =				\
 	dfps.c				        \
 	qxl_uxa.c                               \
 	qxl_ums_mode.c                     	\
+	qxl_io.c                                \
 	compat-api.h
 endif

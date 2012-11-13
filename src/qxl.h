@@ -511,6 +511,10 @@ void qxl_io_notify_oom(qxl_screen_t *qxl);
 void qxl_io_flush_surfaces(qxl_screen_t *qxl);
 void qxl_io_destroy_all_surfaces (qxl_screen_t *qxl);
 
+#ifdef QXLDRV_RESIZABLE_SURFACE0
+void qxl_io_flush_release (qxl_screen_t *qxl);
+#endif
+
 /*
  * qxl_edid.c
  */

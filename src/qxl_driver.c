@@ -134,173 +134,6 @@ qxl_available_options (int chipid, int busid)
     return DefaultOptions;
 }
 
-#ifndef XSPICE
-static void
-qxl_wait_for_io_command (qxl_screen_t *qxl)
-{
-    struct QXLRam *ram_header;
-    
-    ram_header = (void *)((unsigned long)qxl->ram + qxl->rom->ram_header_offset);
-    
-    while (!(ram_header->int_pending & QXL_INTERRUPT_IO_CMD))
-	usleep (1);
-    
-    ram_header->int_pending &= ~QXL_INTERRUPT_IO_CMD;
-}
-
-#if 0
-static void
-qxl_wait_for_display_interrupt (qxl_screen_t *qxl)
-{
-    struct QXLRam *ram_header;
-    
-    ram_header = (void *)((unsigned long)qxl->ram + qxl->rom->ram_header_offset);
-    
-    while (!(ram_header->int_pending & QXL_INTERRUPT_DISPLAY))
-	usleep (1);
-    
-    ram_header->int_pending &= ~QXL_INTERRUPT_DISPLAY;
-}
-
-#endif
-#endif
-
-void
-qxl_update_area (qxl_screen_t *qxl)
-{
-#ifndef XSPICE
-    if (qxl->pci->revision >= 3)
-    {
-	ioport_write (qxl, QXL_IO_UPDATE_AREA_ASYNC, 0);
-	qxl_wait_for_io_command (qxl);
-    }
-    else
-    {
-	ioport_write (qxl, QXL_IO_UPDATE_AREA, 0);
-    }
-#else
-    ioport_write (qxl, QXL_IO_UPDATE_AREA, 0);
-#endif
-}
-
-void
-qxl_io_memslot_add (qxl_screen_t *qxl, uint8_t id)
-{
-#ifndef XSPICE
-    if (qxl->pci->revision >= 3)
-    {
-	ioport_write (qxl, QXL_IO_MEMSLOT_ADD_ASYNC, id);
-	qxl_wait_for_io_command (qxl);
-    }
-    else
-    {
-	ioport_write (qxl, QXL_IO_MEMSLOT_ADD, id);
-    }
-#else
-    ioport_write (qxl, QXL_IO_MEMSLOT_ADD, id);
-#endif
-}
-
-void
-qxl_io_create_primary (qxl_screen_t *qxl)
-{
-#ifndef XSPICE
-    if (qxl->pci->revision >= 3)
-    {
-	ioport_write (qxl, QXL_IO_CREATE_PRIMARY_ASYNC, 0);
-	qxl_wait_for_io_command (qxl);
-    }
-    else
-    {
-	ioport_write (qxl, QXL_IO_CREATE_PRIMARY, 0);
-    }
-#else
-    ioport_write (qxl, QXL_IO_CREATE_PRIMARY, 0);
-#endif
-    qxl->device_primary = QXL_DEVICE_PRIMARY_CREATED;
-}
-
-void
-qxl_io_destroy_primary (qxl_screen_t *qxl)
-{
-#ifndef XSPICE
-    if (qxl->pci->revision >= 3)
-    {
-	ioport_write (qxl, QXL_IO_DESTROY_PRIMARY_ASYNC, 0);
-	qxl_wait_for_io_command (qxl);
-    }
-    else
-    {
-	ioport_write (qxl, QXL_IO_DESTROY_PRIMARY, 0);
-    }
-#else
-    ioport_write (qxl, QXL_IO_DESTROY_PRIMARY, 0);
-#endif
-    qxl->device_primary = QXL_DEVICE_PRIMARY_NONE;
-}
-
-void
-qxl_io_notify_oom (qxl_screen_t *qxl)
-{
-    ioport_write (qxl, QXL_IO_NOTIFY_OOM, 0);
-}
-
-void
-qxl_io_flush_surfaces (qxl_screen_t *qxl)
-{
-    // FIXME: write individual update_area for revision < V10
-#ifndef XSPICE
-    ioport_write (qxl, QXL_IO_FLUSH_SURFACES_ASYNC, 0);
-    qxl_wait_for_io_command (qxl);
-#else
-    ioport_write (qxl, QXL_IO_FLUSH_SURFACES_ASYNC, 0);
-#endif
-}
-
-static void
-qxl_usleep (int useconds)
-{
-    struct timespec t;
-    
-    t.tv_sec = useconds / 1000000;
-    t.tv_nsec = (useconds - (t.tv_sec * 1000000)) * 1000;
-    
-    errno = 0;
-    while (nanosleep (&t, &t) == -1 && errno == EINTR)
-	;
-}
-
-#ifdef QXLDRV_RESIZABLE_SURFACE0
-static void
-qxl_io_flush_release (qxl_screen_t *qxl)
-{
-#ifndef XSPICE
-    int sum = 0;
-    
-    sum += qxl_garbage_collect (qxl);
-    ioport_write (qxl, QXL_IO_FLUSH_RELEASE, 0);
-    sum +=  qxl_garbage_collect (qxl);
-    ErrorF ("%s: collected %d\n", __func__, sum);
-#else
-#endif
-}
-
-#endif
-
-void
-qxl_io_monitors_config_async (qxl_screen_t *qxl)
-{
-#ifndef XSPICE
-    if (qxl->pci->revision < 4)
-	return;
-    
-    ioport_write (qxl, QXL_IO_MONITORS_CONFIG_ASYNC, 0);
-    qxl_wait_for_io_command (qxl);
-#else
-    fprintf (stderr, "UNIMPLEMENTED!\n");
-#endif
-}
-
 /* Having a single monitors config struct allocated on the device avoids any
  *
  * possible fragmentation. Since X is single threaded there is no danger
@@ -427,6 +260,19 @@ qxl_garbage_collect (qxl_screen_t *qxl)
     }
     
     return i;
+}
+
+static void
+qxl_usleep (int useconds)
+{
+    struct timespec t;
+    
+    t.tv_sec = useconds / 1000000;
+    t.tv_nsec = (useconds - (t.tv_sec * 1000000)) * 1000;
+    
+    errno = 0;
+    while (nanosleep (&t, &t) == -1 && errno == EINTR)
+	;
 }
 
 int
@@ -841,25 +687,6 @@ qxl_mark_mem_unverifiable (qxl_screen_t *qxl)
 {
     qxl_mem_unverifiable (qxl->mem);
     qxl_mem_unverifiable (qxl->surf_mem);
-}
-
-void
-qxl_io_destroy_all_surfaces (qxl_screen_t *qxl)
-{
-#ifndef XSPICE
-    if (qxl->pci->revision >= 3)
-    {
-	ioport_write (qxl, QXL_IO_DESTROY_ALL_SURFACES_ASYNC, 0);
-	qxl_wait_for_io_command (qxl);
-    }
-    else
-    {
-	ioport_write (qxl, QXL_IO_DESTROY_ALL_SURFACES, 0);
-    }
-#else
-    ErrorF ("Xspice: error: UNIMPLEMENTED qxl_io_destroy_all_surfaces\n");
-#endif
-    qxl->device_primary = QXL_DEVICE_PRIMARY_NONE;
 }
 
 static Bool
