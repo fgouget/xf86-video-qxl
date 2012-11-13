@@ -416,11 +416,14 @@ void		   qxl_surface_composite (qxl_surface_t *dest,
 					  int dst_x, int dst_y,
 					  int width, int height);
 
+/* UXA */
 #if HAS_DEVPRIVATEKEYREC
 extern DevPrivateKeyRec uxa_pixmap_index;
 #else
 extern int uxa_pixmap_index;
 #endif
+Bool
+qxl_uxa_init (qxl_screen_t *qxl, ScreenPtr screen);
 
 static inline qxl_surface_t *get_surface (PixmapPtr pixmap)
 {
