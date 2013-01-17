@@ -134,6 +134,10 @@ const OptionInfoRec DefaultOptions[] =
     { -1, NULL, OPTV_NONE, {0}, FALSE }
 };
 
+
+static void qxl_update_monitors_config (qxl_screen_t *qxl);
+
+
 static const OptionInfoRec *
 qxl_available_options (int chipid, int busid)
 {
@@ -318,15 +322,8 @@ qxl_io_monitors_config_async (qxl_screen_t *qxl)
 static void
 qxl_allocate_monitors_config (qxl_screen_t *qxl)
 {
-    int size = sizeof (QXLMonitorsConfig) + sizeof (QXLHead) * MAX_MONITORS_NUM;
-    
-    if (qxl->monitors_config)
-	return;
-    
     qxl->monitors_config = (QXLMonitorsConfig *)(void *)
 	((unsigned long)qxl->ram + qxl->rom->ram_header_offset - qxl->monitors_config_size);
-    
-    memset (qxl->monitors_config, 0, size);
 }
 
 static uint64_t
@@ -845,6 +842,8 @@ qxl_reset_and_create_mem_slots (qxl_screen_t *qxl)
                                      (uint64_t)(uintptr_t)qxl->vram,
                                      (uint64_t)(uintptr_t)qxl->vram + (uint64_t)qxl->vram_size);
 #endif
+
+    qxl_allocate_monitors_config(qxl);
 }
 
 static void
