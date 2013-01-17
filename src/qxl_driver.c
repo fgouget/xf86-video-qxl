@@ -2453,7 +2453,13 @@ qxl_pre_init (ScrnInfoPtr pScrn, int flags)
 #else
     xspice_init_qxl_ram (qxl); /* initialize the rings */
 #endif
-    pScrn->videoRam = (qxl->rom->num_pages * 4096) / 1024;
+
+#define DIV_ROUND_UP(n, a) (((n) + (a) - 1) / (a))
+#define BYTES_TO_KB(bytes) DIV_ROUND_UP(bytes, 1024)
+#define PAGES_TO_KB(pages) ((pages) * getpagesize() / 1024)
+
+    pScrn->videoRam = PAGES_TO_KB(qxl->rom->num_pages)
+                      - BYTES_TO_KB(qxl->monitors_config_size);
     xf86DrvMsg (scrnIndex, X_INFO, "%d KB of video RAM\n", pScrn->videoRam);
     xf86DrvMsg (scrnIndex, X_INFO, "%d surfaces\n", qxl->rom->n_surfaces);
     
