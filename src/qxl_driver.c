@@ -1076,7 +1076,8 @@ qxl_update_monitors_config (qxl_screen_t *qxl)
     qxl_output_private *qxl_output;
     QXLRam * ram = get_ram_header (qxl);
     
-    check_crtc (qxl);
+    if (check_crtc (qxl) == 0)
+        return;
     
     qxl->monitors_config->count = 0;
     qxl->monitors_config->max_allowed = qxl->num_heads;
@@ -2175,7 +2176,6 @@ qxl_crtc_set_mode_major (xf86CrtcPtr crtc, DisplayModePtr mode,
     if (!crtc_set_mode_major (crtc, mode, rotation, x, y))
 	return FALSE;
     
-    check_crtc (qxl);
     qxl_update_monitors_config (qxl);
     
     return TRUE;
@@ -2271,8 +2271,7 @@ qxl_xf86crtc_resize (ScrnInfoPtr scrn, int width, int height)
     
     // when starting, no monitor is enabled, and count == 0
     // we want to avoid server/client freaking out with temporary config
-    if (check_crtc (qxl) != 0)
-	qxl_update_monitors_config (qxl);
+    qxl_update_monitors_config (qxl);
     
     return TRUE;
 }
