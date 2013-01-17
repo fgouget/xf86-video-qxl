@@ -1034,21 +1034,6 @@ qxl_switch_mode (SWITCH_MODE_ARGS_DECL)
     return qxl_resize_primary_to_virtual (qxl);
 }
 
-enum ROPDescriptor
-{
-    ROPD_INVERS_SRC = (1 << 0),
-    ROPD_INVERS_BRUSH = (1 << 1),
-    ROPD_INVERS_DEST = (1 << 2),
-    ROPD_OP_PUT = (1 << 3),
-    ROPD_OP_OR = (1 << 4),
-    ROPD_OP_AND = (1 << 5),
-    ROPD_OP_XOR = (1 << 6),
-    ROPD_OP_BLACKNESS = (1 << 7),
-    ROPD_OP_WHITENESS = (1 << 8),
-    ROPD_OP_INVERS = (1 << 9),
-    ROPD_INVERS_RES = (1 << 10),
-};
-
 static int
 check_crtc (qxl_screen_t *qxl)
 {
