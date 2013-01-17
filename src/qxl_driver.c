@@ -1040,6 +1040,10 @@ check_crtc (qxl_screen_t *qxl)
     int i, count = 0;
     xf86CrtcPtr crtc;
     
+    if (qxl->crtcs == NULL) {
+        return 0;
+    }
+
     for (i = 0 ; i < qxl->num_heads; ++i)
     {
 	crtc = qxl->crtcs[i];
