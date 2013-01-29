@@ -135,6 +135,10 @@ const OptionInfoRec DefaultOptions[] =
 };
 
 
+/* These constants govern which modes are reported to X as preferred */
+#define DEFAULT_WIDTH       1024
+#define DEFAULT_HEIGHT       768
+
 static void qxl_update_monitors_config (qxl_screen_t *qxl);
 
 
@@ -1740,7 +1744,7 @@ qxl_fb_init (qxl_screen_t *qxl, ScreenPtr pScreen)
    
     if (!fbScreenInit (pScreen, qxl_surface_get_host_bits(qxl->primary),
                        pScrn->virtualX, pScrn->virtualY,
-                       pScrn->xDpi, pScrn->yDpi, pScrn->displayWidth,
+                       pScrn->xDpi, pScrn->yDpi, pScrn->virtualX,
                        pScrn->bitsPerPixel))
 	return FALSE;
     
@@ -1780,14 +1784,10 @@ qxl_screen_init (SCREEN_INIT_ARGS_DECL)
 	goto out;
     if (!miSetPixmapDepths ())
 	goto out;
-    pScrn->displayWidth = pScrn->virtualX;
     
 #if 0
     ErrorF ("allocated %d x %d  %p\n", pScrn->virtualX, pScrn->virtualY, qxl->fb);
 #endif
-   
-    pScrn->virtualX = pScrn->currentMode->HDisplay;
-    pScrn->virtualY = pScrn->currentMode->VDisplay;
 
     /* Set up resources */
     qxl_reset_and_create_mem_slots (qxl);
@@ -2083,15 +2083,6 @@ qxl_output_get_modes (xf86OutputPtr output)
     qxl_output_private *qxl_output = output->driver_private;
     DisplayModePtr      modes = xf86DuplicateModes (qxl_output->qxl->pScrn, qxl_output->qxl->x_modes);
     
-    if (output &&
-        output->crtc && output->crtc->enabled)
-    {
-	DisplayModePtr crtc_mode = &output->crtc->mode;
-	crtc_mode = screen_create_mode (qxl_output->qxl->pScrn, crtc_mode->HDisplay, crtc_mode->VDisplay, M_T_PREFERRED);
-	output->crtc->mode = *crtc_mode;
-	modes = xf86ModesAdd (modes, crtc_mode);
-    }
-    
     /* xf86ProbeOutputModes owns this memory */
     return modes;
 }
@@ -2322,15 +2313,12 @@ qxl_init_randr (ScrnInfoPtr pScrn, qxl_screen_t *qxl)
 	qxl_crtc->output = output;
     }
     
-    qxl->virtual_x = 1024;
-    qxl->virtual_y = 768;
-    
-    pScrn->display->virtualX = qxl->virtual_x;
-    pScrn->display->virtualY = qxl->virtual_y;
-    
     xf86InitialConfiguration (pScrn, TRUE);
     /* all crtcs are enabled here, but their mode is 0,
        resulting monitor config empty atm */
+
+    qxl->virtual_x = pScrn->virtualX;
+    qxl->virtual_y = pScrn->virtualY;
 }
 
 static void
@@ -2339,6 +2327,7 @@ qxl_initialize_x_modes (qxl_screen_t *qxl, ScrnInfoPtr pScrn,
 {
     int i;
     int size;
+    int preferred_flag;
     
     *max_x = *max_y = 0;
     /* Create a list of modes used by the qxl_output_get_modes */
@@ -2353,9 +2342,14 @@ qxl_initialize_x_modes (qxl_screen_t *qxl, ScrnInfoPtr pScrn,
 		        qxl->modes[i].x_res, qxl->modes[i].y_res);
 		continue;
 	    }
-	    
+
+            if (qxl->modes[i].x_res == DEFAULT_WIDTH && qxl->modes[i].y_res == DEFAULT_HEIGHT)
+                preferred_flag = M_T_PREFERRED;
+            else
+                preferred_flag = 0;
+
 	    qxl_add_mode (qxl, pScrn, qxl->modes[i].x_res, qxl->modes[i].y_res,
-	                  M_T_DRIVER);
+	                  M_T_DRIVER | preferred_flag);
 	    if (qxl->modes[i].x_res > *max_x)
 		*max_x = qxl->modes[i].x_res;
 	    if (qxl->modes[i].y_res > *max_y)
@@ -2489,51 +2483,15 @@ qxl_pre_init (ScrnInfoPtr pScrn, int flags)
 	pScrn->monitor->vrefresh[0].hi = 75;
 	pScrn->monitor->nVrefresh = 1;
     }
-    
+
     qxl_initialize_x_modes (qxl, pScrn, &max_x, &max_y);
-    
-#if 0
-    if (pScrn->display->virtualX == 0 && pScrn->display->virtualY == 0)
-    {
-	/* It is possible for the largest x + largest y size combined leading
-	   to a virtual size which will not fit into the framebuffer when this
-	   happens we prefer max width and make height as large as possible */
-	if (max_x * max_y * (pScrn->bitsPerPixel / 8) >
-	    qxl->rom->surface0_area_size)
-	    pScrn->display->virtualY = qxl->rom->surface0_area_size /
-		(max_x * (pScrn->bitsPerPixel / 8));
-	else
-	    pScrn->display->virtualY = max_y;
-	
-	pScrn->display->virtualX = max_x;
-    }
-    
-    if (0 >= xf86ValidateModes (pScrn, pScrn->monitor->Modes,
-                                pScrn->display->modes, clockRanges, linePitches,
-                                128, max_x, 128 * 4, 128, max_y,
-                                pScrn->display->virtualX,
-                                pScrn->display->virtualY,
-                                128 * 1024 * 1024, LOOKUP_BEST_REFRESH))
-	goto out;
-#endif
     
     CHECK_POINT ();
     
     xf86PruneDriverModes (pScrn);
     
     qxl_init_randr (pScrn, qxl);
-#if 0
-    /* If no modes are specified in xorg.conf, default to 1024x768 */
-    if (pScrn->display->modes == NULL || pScrn->display->modes[0] == NULL)
-	for (mode = pScrn->modes; mode; mode = mode->next)
-	    if (mode->HDisplay == 1024 && mode->VDisplay == 768)
-	    {
-		pScrn->currentMode = mode;
-		break;
-	    }
-#endif
-    
-    //xf86PrintModes (pScrn);
+
     xf86SetDpi (pScrn, 0, 0);
     
     if (!xf86LoadSubModule (pScrn, "fb")
