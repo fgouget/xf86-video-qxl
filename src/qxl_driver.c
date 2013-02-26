@@ -956,6 +956,49 @@ qxl_check_device (ScrnInfoPtr pScrn, qxl_screen_t *qxl)
 #endif /* !XSPICE */
 
 static Bool
+qxl_pre_init_common(ScrnInfoPtr pScrn)
+{
+    int           scrnIndex = pScrn->scrnIndex;
+    qxl_screen_t *qxl = pScrn->driverPrivate;
+
+    if (!qxl_color_setup (pScrn))
+	goto out;
+
+    /* option parsing and card differentiation */
+    xf86CollectOptions (pScrn, NULL);
+    memcpy (qxl->options, DefaultOptions, sizeof (DefaultOptions));
+    xf86ProcessOptions (scrnIndex, pScrn->options, qxl->options);
+
+    qxl->enable_image_cache =
+        xf86ReturnOptValBool (qxl->options, OPTION_ENABLE_IMAGE_CACHE, TRUE);
+    qxl->enable_fallback_cache =
+        xf86ReturnOptValBool (qxl->options, OPTION_ENABLE_FALLBACK_CACHE, TRUE);
+    qxl->enable_surfaces =
+        xf86ReturnOptValBool (qxl->options, OPTION_ENABLE_SURFACES, TRUE);
+    qxl->num_heads =
+        get_int_option (qxl->options, OPTION_NUM_HEADS, "QXL_NUM_HEADS");
+
+#ifdef XSPICE
+    qxl->deferred_fps = get_int_option(qxl->options, OPTION_SPICE_DEFERRED_FPS, "XSPICE_DEFERRED_FPS");
+    if (qxl->deferred_fps > 0)
+        xf86DrvMsg(scrnIndex, X_INFO, "Deferred FPS: %d\n", qxl->deferred_fps);
+    else
+        xf86DrvMsg(scrnIndex, X_INFO, "Deferred Frames: Disabled\n");
+#endif
+
+    xf86DrvMsg (scrnIndex, X_INFO, "Offscreen Surfaces: %s\n",
+                qxl->enable_surfaces ? "Enabled" : "Disabled");
+    xf86DrvMsg (scrnIndex, X_INFO, "Image Cache: %s\n",
+                qxl->enable_image_cache ? "Enabled" : "Disabled");
+    xf86DrvMsg (scrnIndex, X_INFO, "Fallback Cache: %s\n",
+                qxl->enable_fallback_cache ? "Enabled" : "Disabled");
+
+    return TRUE;
+out:
+    return FALSE;
+}
+
+static Bool
 qxl_pre_init (ScrnInfoPtr pScrn, int flags)
 {
     int           scrnIndex = pScrn->scrnIndex;
@@ -1003,39 +1046,10 @@ qxl_pre_init (ScrnInfoPtr pScrn, int flags)
     }
 #endif /* XSPICE */
     pScrn->monitor = pScrn->confScreen->monitor;
-    
-    if (!qxl_color_setup (pScrn))
-	goto out;
-    
-    /* option parsing and card differentiation */
-    xf86CollectOptions (pScrn, NULL);
-    memcpy (qxl->options, DefaultOptions, sizeof (DefaultOptions));
-    xf86ProcessOptions (scrnIndex, pScrn->options, qxl->options);
-    
-    qxl->enable_image_cache =
-        xf86ReturnOptValBool (qxl->options, OPTION_ENABLE_IMAGE_CACHE, TRUE);
-    qxl->enable_fallback_cache =
-        xf86ReturnOptValBool (qxl->options, OPTION_ENABLE_FALLBACK_CACHE, TRUE);
-    qxl->enable_surfaces =
-        xf86ReturnOptValBool (qxl->options, OPTION_ENABLE_SURFACES, TRUE);
-    qxl->num_heads =
-        get_int_option (qxl->options, OPTION_NUM_HEADS, "QXL_NUM_HEADS");
-    
-#ifdef XSPICE
-    qxl->deferred_fps = get_int_option(qxl->options, OPTION_SPICE_DEFERRED_FPS, "XSPICE_DEFERRED_FPS");
-    if (qxl->deferred_fps > 0)
-        xf86DrvMsg(scrnIndex, X_INFO, "Deferred FPS: %d\n", qxl->deferred_fps);
-    else
-        xf86DrvMsg(scrnIndex, X_INFO, "Deferred Frames: Disabled\n");
-#endif
 
-    xf86DrvMsg (scrnIndex, X_INFO, "Offscreen Surfaces: %s\n",
-                qxl->enable_surfaces ? "Enabled" : "Disabled");
-    xf86DrvMsg (scrnIndex, X_INFO, "Image Cache: %s\n",
-                qxl->enable_image_cache ? "Enabled" : "Disabled");
-    xf86DrvMsg (scrnIndex, X_INFO, "Fallback Cache: %s\n",
-                qxl->enable_fallback_cache ? "Enabled" : "Disabled");
-    
+    if (!qxl_pre_init_common(pScrn))
+	goto out;
+
     if (!qxl_map_memory (qxl, scrnIndex))
 	goto out;
     
