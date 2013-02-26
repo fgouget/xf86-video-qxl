@@ -44,6 +44,10 @@
  *    Dave Airlie <airlied@redhat.com>
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <xorg-server.h>
 #include <misc.h>
 #include <xf86DDC.h>
