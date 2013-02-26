@@ -18,8 +18,8 @@ struct qxl_surface_t
     void *		address;
     void *		end;
     
-    qxl_surface_t *	next;
-    qxl_surface_t *	prev;	/* Only used in the 'live'
+    struct qxl_surface_t *	next;
+    struct qxl_surface_t *	prev;	/* Only used in the 'live'
 				 * chain in the surface cache
 				 */
 
@@ -33,7 +33,7 @@ struct qxl_surface_t
 
     union
     {
-	qxl_surface_t *copy_src;
+	struct qxl_surface_t *copy_src;
 	Pixel	       solid_pixel;
 
 	struct
@@ -42,9 +42,9 @@ struct qxl_surface_t
 	    PicturePtr		src_picture;
 	    PicturePtr		mask_picture;
 	    PicturePtr		dest_picture;
-	    qxl_surface_t	*src;
-	    qxl_surface_t	*mask;
-	    qxl_surface_t	*dest;
+	    struct qxl_surface_t	*src;
+	    struct qxl_surface_t	*mask;
+	    struct qxl_surface_t	*dest;
 	} composite;
     } u;
 };
