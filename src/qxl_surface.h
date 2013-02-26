@@ -6,7 +6,8 @@ struct evacuated_surface_t;
 struct qxl_surface_t
 {
     surface_cache_t    *cache;
-    
+
+    qxl_screen_t *qxl;
     uint32_t	        id;
 
     pixman_image_t *	dev_image;

@@ -157,6 +157,7 @@ surface_cache_init (surface_cache_t *cache, qxl_screen_t *qxl)
     {
 	cache->all_surfaces[i].id = i;
 	cache->all_surfaces[i].cache = cache;
+	cache->all_surfaces[i].qxl = qxl;
 	cache->all_surfaces[i].dev_image = NULL;
 	cache->all_surfaces[i].host_image = NULL;
 	cache->all_surfaces[i].evacuated = NULL;
@@ -376,6 +377,7 @@ qxl_surface_cache_create_primary (qxl_screen_t *qxl,
     surface->dev_image = dev_image;
     surface->host_image = host_image;
     surface->cache = cache;
+    surface->qxl = qxl;
     surface->bpp = mode->bits;
     surface->next = NULL;
     surface->prev = NULL;
@@ -994,7 +996,7 @@ real_upload_box (qxl_surface_t *surface, int x1, int y1, int x2, int y2)
     struct QXLRect rect;
     struct QXLDrawable *drawable;
     struct QXLImage *image;
-    qxl_screen_t *qxl = surface->cache->qxl;
+    qxl_screen_t *qxl = surface->qxl;
     uint32_t *data;
     int stride;
     
@@ -1287,7 +1289,7 @@ qxl_surface_solid (qxl_surface_t *destination,
 		   int	          x2,
 		   int	          y2)
 {
-    qxl_screen_t *qxl = destination->cache->qxl;
+    qxl_screen_t *qxl = destination->qxl;
     struct QXLRect qrect;
     uint32_t p;
 
@@ -1323,7 +1325,7 @@ qxl_surface_copy (qxl_surface_t *dest,
 		  int  dest_x1, int dest_y1,
 		  int width, int height)
 {
-    qxl_screen_t *qxl = dest->cache->qxl;
+    qxl_screen_t *qxl = dest->qxl;
     struct QXLDrawable *drawable;
     struct QXLRect qrect;
 
@@ -1475,7 +1477,7 @@ qxl_surface_composite (qxl_surface_t *dest,
 		       int dest_x, int dest_y,
 		       int width, int height)
 {
-    qxl_screen_t *qxl = dest->cache->qxl;
+    qxl_screen_t *qxl = dest->qxl;
     PicturePtr src = dest->u.composite.src_picture;
     qxl_surface_t *qsrc = dest->u.composite.src;
     PicturePtr mask = dest->u.composite.mask_picture;
@@ -1578,7 +1580,7 @@ qxl_surface_put_image (qxl_surface_t *dest,
 		       const char *src, int src_pitch)
 {
     struct QXLDrawable *drawable;
-    qxl_screen_t *qxl = dest->cache->qxl;
+    qxl_screen_t *qxl = dest->qxl;
     struct QXLRect rect;
     struct QXLImage *image;
     
