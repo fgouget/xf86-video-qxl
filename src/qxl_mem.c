@@ -32,9 +32,18 @@
 #include "qxl.h"
 #include "mspace.h"
 
+#include "qxl_surface.h"
 #ifdef DEBUG_QXL_MEM
 #include <valgrind/memcheck.h>
 #endif
+
+#define QXL_BO_DATA 1
+#define QXL_BO_SURF 2
+#define QXL_BO_CMD 4
+#define QXL_BO_SURF_PRIMARY 8
+
+#define QXL_BO_FLAG_FAIL 1
+
 
 struct qxl_mem
 {
@@ -124,7 +133,7 @@ qxl_mem_dump_stats   (struct qxl_mem         *mem,
     mspace_malloc_stats (mem->space);
 }
 
-void *
+static void *
 qxl_alloc            (struct qxl_mem         *mem,
 		      unsigned long           n_bytes,
 		      const char             *name)
@@ -140,7 +149,7 @@ qxl_alloc            (struct qxl_mem         *mem,
     return addr;
 }
 
-void
+static void
 qxl_free             (struct qxl_mem         *mem,
 		      void                   *d,
 		      const char *            name)
@@ -173,7 +182,6 @@ qxl_mem_free_all     (struct qxl_mem         *mem)
 #endif
     mem->space = create_mspace_with_base (mem->base, mem->n_bytes, 0, NULL);
 }
-
 
 static uint8_t
 setup_slot (qxl_screen_t *qxl, uint8_t slot_index_offset,
@@ -265,13 +273,15 @@ qxl_garbage_collect_internal (qxl_screen_t *qxl, uint64_t id)
      */
 #define POINTER_MASK ((1 << 2) - 1)
 
-    union QXLReleaseInfo *info = u64_to_pointer (id & ~POINTER_MASK);
+    struct qxl_bo *info_bo = (struct qxl_bo *)(id & ~POINTER_MASK);
+    union QXLReleaseInfo *info = qxl->bo_funcs->bo_map(info_bo);
     struct QXLCursorCmd *cmd = (struct QXLCursorCmd *)info;
     struct QXLDrawable *drawable = (struct QXLDrawable *)info;
     struct QXLSurfaceCmd *surface_cmd = (struct QXLSurfaceCmd *)info;
     int is_cursor = FALSE;
     int is_surface = FALSE;
     int is_drawable = FALSE;
+    struct qxl_bo *to_free;
 
     if ((id & POINTER_MASK) == 1)
 	is_cursor = TRUE;
@@ -282,43 +292,42 @@ qxl_garbage_collect_internal (qxl_screen_t *qxl, uint64_t id)
 
     if (is_cursor && cmd->type == QXL_CURSOR_SET)
     {
-	struct QXLCursor *cursor = (void *)virtual_address (
-	    qxl, u64_to_pointer (cmd->u.set.shape), qxl->main_mem_slot);
-
-	qxl_free (qxl->mem, cursor, "cursor image");
+	to_free = qxl_ums_lookup_phy_addr(qxl, cmd->u.set.shape);
+	qxl->bo_funcs->bo_decref (qxl, to_free);
     }
     else if (is_drawable && drawable->type == QXL_DRAW_COPY)
     {
-	struct QXLImage *image = virtual_address (
-	    qxl, u64_to_pointer (drawable->u.copy.src_bitmap), qxl->main_mem_slot);
+	struct QXLImage *image;
+
+	to_free = qxl_ums_lookup_phy_addr(qxl, drawable->u.copy.src_bitmap);
+	image = qxl->bo_funcs->bo_map(to_free);
 
 	if (image->descriptor.type == SPICE_IMAGE_TYPE_SURFACE)
 	{
 	    qxl_surface_unref (qxl->surface_cache, image->surface_image.surface_id);
 	    qxl_surface_cache_sanity_check (qxl->surface_cache);
-	    qxl_free (qxl->mem, image, "surface image");
+	    qxl->bo_funcs->bo_unmap(to_free);
+	    qxl->bo_funcs->bo_decref (qxl, to_free);
 	}
 	else
 	{
-	    qxl_image_destroy (qxl, image);
+	    qxl->bo_funcs->bo_unmap(to_free);
+	    qxl_image_destroy (qxl, to_free);
 	}
     }
     else if (is_drawable && drawable->type == QXL_DRAW_COMPOSITE)
     {
-	struct QXLTransform *src_trans, *mask_trans;
-	struct QXLImage *src_img, *mask_img;
+	struct qxl_bo *bo;
 	struct QXLComposite *composite = &drawable->u.composite;
 
 	/* Source */
-	src_img = virtual_address (
-	    qxl, u64_to_pointer (drawable->u.composite.src), qxl->main_mem_slot);
-	qxl_free (qxl->mem, src_img, "image struct");
+	bo = qxl_ums_lookup_phy_addr(qxl, drawable->u.composite.src);
+	qxl->bo_funcs->bo_decref (qxl, bo);
 
 	if (composite->src_transform)
 	{
-	    src_trans = virtual_address (
-		qxl, u64_to_pointer (composite->src_transform), qxl->main_mem_slot);
-	    qxl_free (qxl->mem, src_trans, "transform");
+	    bo = qxl_ums_lookup_phy_addr(qxl, composite->src_transform);
+	    qxl->bo_funcs->bo_decref (qxl, bo);
 	}
 
 	/* Mask */
@@ -326,15 +335,11 @@ qxl_garbage_collect_internal (qxl_screen_t *qxl, uint64_t id)
 	{
 	    if (drawable->u.composite.mask_transform)
 	    {
-		mask_trans = virtual_address (
-		    qxl, u64_to_pointer (drawable->u.composite.mask_transform), qxl->main_mem_slot);
-
-		qxl_free (qxl->mem, mask_trans, "transform");
+		bo = qxl_ums_lookup_phy_addr(qxl, drawable->u.composite.mask_transform);
+		qxl->bo_funcs->bo_decref (qxl, bo);
 	    }
-
-	    mask_img = virtual_address (
-		qxl, u64_to_pointer (drawable->u.composite.mask), qxl->main_mem_slot);
-	    qxl_free (qxl->mem, mask_img, "image struct");
+	    bo = qxl_ums_lookup_phy_addr(qxl, drawable->u.composite.mask);
+	    qxl->bo_funcs->bo_decref (qxl, bo);
 	}
     }
     else if (is_surface && surface_cmd->type == QXL_SURFACE_CMD_DESTROY)
@@ -345,7 +350,8 @@ qxl_garbage_collect_internal (qxl_screen_t *qxl, uint64_t id)
 
     id = info->next;
 
-    qxl_free (qxl->mem, info, "command");
+    qxl->bo_funcs->bo_unmap(info_bo);
+    qxl->bo_funcs->bo_decref(qxl, info_bo);
 
     return id;
 }
@@ -432,4 +438,283 @@ qxl_allocnf (qxl_screen_t *qxl, unsigned long size, const char *name)
     }
 
     return result;
+}
+
+struct qxl_ums_bo {
+    void *virt_addr;
+    const char *name;
+    int type;
+    uint32_t size;
+    void *internal_virt_addr;
+    int refcnt;
+    qxl_screen_t *qxl;
+    struct xorg_list bos;
+};
+
+static struct qxl_bo *qxl_bo_alloc_internal(qxl_screen_t *qxl, int type, int flags, unsigned long size, const char *name)
+{
+    struct qxl_ums_bo *bo;
+    struct qxl_mem *mptr;
+
+    bo = calloc(1, sizeof(struct qxl_ums_bo));
+    if (!bo)
+	return NULL;
+
+    bo->size = size;
+    bo->name = name;
+    bo->type = type;
+    bo->qxl = qxl;
+    bo->refcnt = 1;
+    if (type == QXL_BO_SURF)
+	mptr = qxl->surf_mem;
+    else
+	mptr = qxl->mem;
+
+    if (flags & QXL_BO_FLAG_FAIL) {
+	bo->internal_virt_addr = qxl_alloc(mptr, size, name);
+	if (!bo->internal_virt_addr) {
+	    free(bo);
+	    return NULL;
+	}
+    } else
+	bo->internal_virt_addr = qxl_allocnf(qxl, size, name);
+
+    if (type != QXL_BO_SURF) {
+	xorg_list_add(&bo->bos, &qxl->ums_bos);
+    }
+    return (struct qxl_bo *)bo;
+}
+
+static struct qxl_bo *qxl_bo_alloc(qxl_screen_t *qxl, unsigned long size, const char *name)
+{
+    return qxl_bo_alloc_internal(qxl, QXL_BO_DATA, 0, size, name);
+}
+
+static struct qxl_bo *qxl_cmd_alloc(qxl_screen_t *qxl, unsigned long size, const char *name)
+{
+    return qxl_bo_alloc_internal(qxl, QXL_BO_CMD, 0, size, name);
+}
+
+static void *qxl_bo_map(struct qxl_bo *_bo)
+{
+    struct qxl_ums_bo *bo = (struct qxl_ums_bo *)_bo;
+    if (bo->virt_addr)
+	ErrorF("recursive map %p\n", bo);
+    bo->virt_addr = bo->internal_virt_addr;
+    return bo->virt_addr;
+}
+
+static void qxl_bo_unmap(struct qxl_bo *_bo)
+{
+    struct qxl_ums_bo *bo = (struct qxl_ums_bo *)_bo;
+    if (!bo->virt_addr)
+	ErrorF("unbalanced unmap %p\n", bo);
+    bo->virt_addr = NULL;
+}
+
+static void qxl_bo_output_bo_reloc(qxl_screen_t *qxl, uint32_t dst_offset,
+				struct qxl_bo *_dst_bo,
+				struct qxl_bo *_src_bo)
+{
+    struct qxl_ums_bo *src_bo = (struct qxl_ums_bo *)_src_bo;
+    struct qxl_ums_bo *dst_bo = (struct qxl_ums_bo *)_dst_bo;
+    uint8_t slot_id;
+    uint64_t value;
+
+    /* take a refernce on the bo */
+    src_bo->refcnt++;
+
+    slot_id = src_bo->type == QXL_BO_SURF ? qxl->vram_mem_slot : qxl->main_mem_slot;
+    value = physical_address(qxl, src_bo->internal_virt_addr, slot_id);
+
+    *(uint64_t *)((char *)dst_bo->internal_virt_addr + dst_offset) = value;
+}
+
+static void qxl_bo_output_cmd_reloc(qxl_screen_t *qxl, QXLCommand *command,
+				    struct qxl_bo *_src_bo)
+{
+    struct qxl_ums_bo *src_bo = (struct qxl_ums_bo *)_src_bo;
+    uint64_t value;
+    uint8_t slot_id;
+
+    src_bo->refcnt++;
+
+    slot_id = src_bo->type == QXL_BO_SURF ? qxl->vram_mem_slot : qxl->main_mem_slot;
+    value = physical_address(qxl, src_bo->internal_virt_addr, slot_id);
+
+    command->data = value;
+}
+
+struct qxl_bo *qxl_ums_lookup_phy_addr(qxl_screen_t *qxl, uint64_t phy_addr)
+{
+    struct qxl_ums_bo *bo, *found = NULL;
+    uint8_t slot_id;
+    void *virt_addr;
+
+    slot_id = qxl->main_mem_slot;
+    virt_addr = (void *)virtual_address(qxl, u64_to_pointer(phy_addr), slot_id);
+    
+    xorg_list_for_each_entry(bo, &qxl->ums_bos, bos) {
+	if (bo->internal_virt_addr == virt_addr && bo->type == QXL_BO_DATA) {
+	    found = bo;
+	    break;
+	}
+    }
+    return (struct qxl_bo *)found;
+}
+
+static void qxl_bo_incref(qxl_screen_t *qxl, struct qxl_bo *_bo)
+{
+    struct qxl_ums_bo *bo = (struct qxl_ums_bo *)_bo;
+    bo->refcnt++;
+}
+
+static void qxl_bo_decref(qxl_screen_t *qxl, struct qxl_bo *_bo)
+{
+    struct qxl_ums_bo *bo = (struct qxl_ums_bo *)_bo;
+    struct qxl_mem *mptr;
+
+    bo->refcnt--;
+
+    if (bo->refcnt > 0)
+	return;
+
+    if (bo->type == QXL_BO_SURF_PRIMARY)
+        goto out_free;
+
+    if (bo->type == QXL_BO_SURF)
+	mptr = qxl->surf_mem;
+    else
+	mptr = qxl->mem;
+
+    qxl_free(mptr, bo->internal_virt_addr, bo->name);
+    if (bo->type != QXL_BO_SURF)
+	xorg_list_del(&bo->bos);
+out_free:
+    free(bo);
+}
+
+static void qxl_bo_write_command(qxl_screen_t *qxl, uint32_t cmd_type, struct qxl_bo *bo)
+{
+    struct QXLCommand cmd;
+
+    /* When someone runs "init 3", the device will be 
+     * switched into VGA mode and there is nothing we
+     * can do about it. We get no notification.
+     * 
+     * However, if commands are submitted when the device
+     * is in VGA mode, they will be queued up, and then
+     * the next time a mode set set, an assertion in the
+     * device will take down the entire virtual machine.
+     *
+     * For surface commands this is not relevant, we send
+     * them regardless.
+     */
+
+    if (!qxl->pScrn->vtSema && cmd_type != QXL_CMD_SURFACE)
+	return;
+
+    cmd.type = cmd_type;
+    qxl_bo_output_cmd_reloc(qxl, &cmd, bo);
+
+    if (cmd_type == QXL_CMD_CURSOR)
+	qxl_ring_push (qxl->cursor_ring, &cmd);
+    else
+	qxl_ring_push (qxl->command_ring, &cmd);
+
+    qxl_bo_decref(qxl, bo);
+}
+
+static void qxl_bo_update_area(qxl_surface_t *surf, int x1, int y1, int x2, int y2)
+{
+    struct QXLRam *ram_header = get_ram_header(surf->qxl);
+    
+    ram_header->update_area.top = y1;
+    ram_header->update_area.bottom = y2;
+    ram_header->update_area.left = x1;
+    ram_header->update_area.right = x2;
+
+    ram_header->update_surface = surf->id;
+
+    qxl_update_area(surf->qxl);
+}
+
+/* create a fake bo for the primary */
+static struct qxl_bo *qxl_bo_create_primary(qxl_screen_t *qxl, uint32_t width, uint32_t height, int32_t stride, uint32_t format)
+{
+    struct qxl_ums_bo *bo;
+    struct QXLRam *ram_header =
+	(void *)((unsigned long)qxl->ram + qxl->rom->ram_header_offset);
+
+    struct QXLSurfaceCreate *create = &(ram_header->create_surface);
+
+    create->width = width;
+    create->height = height;
+    create->stride = - stride;
+    create->format = format;
+    create->position = 0; /* What is this? The Windows driver doesn't use it */
+    create->flags = 0;
+    create->type = QXL_SURF_TYPE_PRIMARY;
+    create->mem = physical_address (qxl, qxl->ram, qxl->main_mem_slot);
+
+    qxl_io_create_primary(qxl);
+
+    bo = calloc(1, sizeof(struct qxl_ums_bo));
+    if (!bo)
+        return NULL;
+
+    bo->size = stride * height;
+    bo->name = "primary";
+    bo->type = QXL_BO_SURF_PRIMARY;
+    bo->qxl = qxl;
+    bo->refcnt = 1;
+    bo->internal_virt_addr = (uint8_t *)qxl->ram + stride * (height - 1);
+
+    qxl->primary_bo = (struct qxl_bo *)bo;
+    return (struct qxl_bo *)bo;
+}
+
+static void qxl_bo_destroy_primary(qxl_screen_t *qxl, struct qxl_bo *bo)
+{
+    free(bo);
+    qxl->primary_bo = NULL;
+
+    qxl_io_destroy_primary (qxl);
+}
+
+static void qxl_bo_output_surf_reloc(qxl_screen_t *qxl, uint32_t dst_offset,
+				     struct qxl_bo *_dst_bo, qxl_surface_t *surf)
+{
+    struct qxl_ums_bo *dst_bo = (struct qxl_ums_bo *)_dst_bo;
+
+    *(uint32_t *)((char *)dst_bo->internal_virt_addr + dst_offset) = surf->id;
+}
+
+struct qxl_bo_funcs qxl_ums_bo_funcs = {
+    qxl_bo_alloc,
+    qxl_cmd_alloc,
+    qxl_bo_map,
+    qxl_bo_unmap,
+    qxl_bo_decref,
+    qxl_bo_incref,
+    qxl_bo_output_bo_reloc,
+    qxl_bo_write_command,
+    qxl_bo_update_area,
+    qxl_bo_create_primary,
+    qxl_bo_destroy_primary,
+    qxl_surface_create,
+    qxl_surface_kill,
+    qxl_bo_output_surf_reloc,
+};
+
+void qxl_ums_setup_funcs(qxl_screen_t *qxl)
+{
+    qxl->bo_funcs = &qxl_ums_bo_funcs;
+}
+
+struct qxl_bo *qxl_ums_surf_mem_alloc(qxl_screen_t *qxl, uint32_t size)
+{
+    struct qxl_bo *bo;
+    bo = qxl_bo_alloc_internal (qxl, QXL_BO_SURF, QXL_BO_FLAG_FAIL, size, "surface memory");
+    return bo;
 }

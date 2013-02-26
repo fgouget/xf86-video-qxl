@@ -523,7 +523,7 @@ qxl_resize_primary_to_virtual (qxl_screen_t *qxl)
     {
 	qxl_surface_kill (qxl->primary);
 	qxl_surface_cache_sanity_check (qxl->surface_cache);
-	qxl_io_destroy_primary (qxl);
+	qxl->bo_funcs->destroy_primary(qxl, qxl->primary_bo);
     }
     
     qxl->primary = qxl_create_primary(qxl);
@@ -1034,7 +1034,9 @@ qxl_pre_init (ScrnInfoPtr pScrn, int flags)
     qxl->pScrn = pScrn;
     qxl->x_modes = NULL;
     qxl->entity = xf86GetEntityInfo (pScrn->entityList[0]);
-    
+
+    xorg_list_init(&qxl->ums_bos);
+
 #ifndef XSPICE
     qxl->pci = xf86GetPciInfoForEntity (qxl->entity->index);
 #ifndef XSERVER_LIBPCIACCESS
@@ -1046,6 +1048,8 @@ qxl_pre_init (ScrnInfoPtr pScrn, int flags)
     }
 #endif /* XSPICE */
     pScrn->monitor = pScrn->confScreen->monitor;
+
+    qxl_ums_setup_funcs(qxl);
 
     if (!qxl_pre_init_common(pScrn))
 	goto out;

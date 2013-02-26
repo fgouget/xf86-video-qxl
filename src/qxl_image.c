@@ -128,7 +128,7 @@ remove_image_info (image_info_t *info)
 #define MAX(a,b)  (((a) > (b))? (a) : (b))
 #define MIN(a,b)  (((a) < (b))? (a) : (b))
 
-struct QXLImage *
+struct qxl_bo *
 qxl_image_create (qxl_screen_t *qxl, const uint8_t *data,
 		  int x, int y, int width, int height,
 		  int stride, int Bpp, Bool fallback)
@@ -136,8 +136,9 @@ qxl_image_create (qxl_screen_t *qxl, const uint8_t *data,
 	uint32_t hash;
 	image_info_t *info;
 	struct QXLImage *image;
-	struct QXLDataChunk *head;
+	struct qxl_bo *head_bo, *tail_bo;
 	struct QXLDataChunk *tail;
+	struct qxl_bo *image_bo;
 	int dest_stride = (width * Bpp + 3) & (~3);
 	int h;
 
@@ -151,7 +152,7 @@ qxl_image_create (qxl_screen_t *qxl, const uint8_t *data,
 
 	/* FIXME: Check integer overflow */
 
-	head = tail = NULL;
+	head_bo = tail_bo = NULL;
 
 	hash = 0;
 	h = height;
@@ -159,35 +160,42 @@ qxl_image_create (qxl_screen_t *qxl, const uint8_t *data,
 	{
 	    int chunk_size = MAX (512 * 512, dest_stride);
 	    int n_lines = MIN ((chunk_size / dest_stride), h);
-	    QXLDataChunk *chunk =
-		qxl_allocnf (qxl, sizeof *chunk + n_lines * dest_stride, "image data");
+	    struct qxl_bo *bo = qxl->bo_funcs->bo_alloc (qxl, sizeof (QXLDataChunk) + n_lines * dest_stride, "image data");
 
+	    QXLDataChunk *chunk = qxl->bo_funcs->bo_map(bo);
 	    chunk->data_size = n_lines * dest_stride;
 	    hash = hash_and_copy (data, stride,
 				  chunk->data, dest_stride,
 				  Bpp, width, n_lines, hash);
 	    
-	    if (tail)
+	    if (tail_bo)
 	    {
-		tail->next_chunk = physical_address (qxl, chunk, qxl->main_mem_slot);
-		chunk->prev_chunk = physical_address (qxl, tail, qxl->main_mem_slot);
+		qxl->bo_funcs->bo_output_bo_reloc(qxl, offsetof(QXLDataChunk, next_chunk),
+					       tail_bo, bo);
+		qxl->bo_funcs->bo_output_bo_reloc(qxl, offsetof(QXLDataChunk, prev_chunk),
+					       bo, tail_bo);
+
 		chunk->next_chunk = 0;
 		
-		tail = chunk;
+		tail_bo = bo;
 	    }
 	    else
 	    {
-		head = tail = chunk;
+		head_bo = tail_bo = bo;
 		chunk->next_chunk = 0;
 		chunk->prev_chunk = 0;
 	    }
 
+	    qxl->bo_funcs->bo_unmap(bo);
+	    if (bo != head_bo)
+		qxl->bo_funcs->bo_decref(qxl, bo);
 	    data += n_lines * stride;
 	    h -= n_lines;
 	}
 
 	/* Image */
-	image = qxl_allocnf (qxl, sizeof *image, "image struct");
+	image_bo = qxl->bo_funcs->bo_alloc (qxl, sizeof *image, "image struct");
+	image = qxl->bo_funcs->bo_map(image_bo);
 
 	image->descriptor.id = 0;
 	image->descriptor.type = SPICE_IMAGE_TYPE_BITMAP;
@@ -218,8 +226,10 @@ qxl_image_create (qxl_screen_t *qxl, const uint8_t *data,
 	image->bitmap.y = height;
 	image->bitmap.stride = dest_stride;
 	image->bitmap.palette = 0;
-	image->bitmap.data = physical_address (qxl, head, qxl->main_mem_slot);
+	qxl->bo_funcs->bo_output_bo_reloc(qxl, offsetof(QXLImage, bitmap.data),
+				       image_bo, head_bo);
 
+	qxl->bo_funcs->bo_decref(qxl, head_bo);
 	/* Add to hash table if caching is enabled */
 	if ((fallback && qxl->enable_fallback_cache)	||
 	    (!fallback && qxl->enable_image_cache))
@@ -238,20 +248,24 @@ qxl_image_create (qxl_screen_t *qxl, const uint8_t *data,
 	    }
 	}
 
-	return image;
+	qxl->bo_funcs->bo_unmap(image_bo);
+	return image_bo;
 }
 
 void
 qxl_image_destroy (qxl_screen_t *qxl,
-		   struct QXLImage *image)
+		   struct qxl_bo *image_bo)
 {
-    image_info_t *info;
-    uint64_t chunk;
+    struct QXLImage *image;
 
+    image_info_t *info;
+    uint64_t chunk, prev_chunk;
+
+    image = qxl->bo_funcs->bo_map(image_bo);
     info = lookup_image_info (image->descriptor.id,
 			      image->descriptor.width,
 			      image->descriptor.height);
-
+    qxl->bo_funcs->bo_unmap(image_bo);
     if (info && info->image == image)
     {
 	--info->ref_count;
@@ -266,20 +280,29 @@ qxl_image_destroy (qxl_screen_t *qxl,
 	remove_image_info (info);
     }
 
-    
+    image = qxl->bo_funcs->bo_map(image_bo);
     chunk = image->bitmap.data;
     while (chunk)
     {
+	struct qxl_bo *bo;
 	struct QXLDataChunk *virtual;
 
-	virtual = virtual_address (qxl, u64_to_pointer (chunk), qxl->main_mem_slot);
-
+	bo = qxl_ums_lookup_phy_addr(qxl, chunk);
+	assert(bo);
+	virtual = qxl->bo_funcs->bo_map(bo);
 	chunk = virtual->next_chunk;
+	prev_chunk = virtual->prev_chunk;
 
-	qxl_free (qxl->mem, virtual, "image data");
+	qxl->bo_funcs->bo_unmap(bo);
+	qxl->bo_funcs->bo_decref (qxl, bo);
+	if (prev_chunk) {
+	    bo = qxl_ums_lookup_phy_addr(qxl, prev_chunk);
+	    assert(bo);
+	    qxl->bo_funcs->bo_decref (qxl, bo);
+	}
     }
-    
-    qxl_free (qxl->mem, image, "image struct");
+    qxl->bo_funcs->bo_unmap(image_bo);
+    qxl->bo_funcs->bo_decref (qxl, image_bo);
 }
 
 void

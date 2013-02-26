@@ -358,8 +358,10 @@ qxl_create_pixmap (ScreenPtr screen, int w, int h, int depth, unsigned usage)
 	goto fallback;
     }
 
-    surface = qxl_surface_create (qxl, w, h, depth);
+    if (!w || !h)
+      goto fallback;
 
+    surface = qxl->bo_funcs->create_surface (qxl, w, h, depth);
     if (surface)
     {
 	/* ErrorF ("   Successfully created surface in video memory\n"); */
@@ -415,7 +417,7 @@ qxl_destroy_pixmap (PixmapPtr pixmap)
 
 	if (surface)
 	{
-	    qxl_surface_kill (surface);
+	    qxl->bo_funcs->destroy_surface(surface);
 	    set_surface (pixmap, NULL);
 
 	    qxl_surface_cache_sanity_check (qxl->surface_cache);

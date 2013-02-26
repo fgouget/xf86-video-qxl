@@ -303,8 +303,9 @@ qxl_surface_recycle (surface_cache_t *cache, uint32_t id)
     qxl_surface_t *surface = cache->all_surfaces + id;
 
     n_live--;
-    qxl_free (cache->qxl->surf_mem, surface->address, "surface memory");
-
+    if (surface->bo)
+	cache->qxl->bo_funcs->bo_decref (cache->qxl, surface->bo);
+    surface->bo = NULL;
     surface->next = cache->free_surfaces;
     cache->free_surfaces = surface;
 }
@@ -319,14 +320,12 @@ qxl_surface_t *
 qxl_surface_cache_create_primary (qxl_screen_t *qxl,
 				  struct QXLMode	*mode)
 {
-    struct QXLRam *ram_header =
-	(void *)((unsigned long)qxl->ram + qxl->rom->ram_header_offset);
-    struct QXLSurfaceCreate *create = &(ram_header->create_surface);
     pixman_format_code_t format;
     uint8_t *dev_addr;
     pixman_image_t *dev_image, *host_image;
     qxl_surface_t *surface;
-    surface_cache_t *cache = qxl->surface_cache;
+    surface_cache_t	*cache = qxl->surface_cache;
+    struct qxl_bo *bo;
 
     if (mode->bits == 16)
     {
@@ -338,24 +337,14 @@ qxl_surface_cache_create_primary (qxl_screen_t *qxl,
     }
     else
     {
-	xf86DrvMsg (cache->qxl->pScrn->scrnIndex, X_ERROR,
+	xf86DrvMsg (qxl->pScrn->scrnIndex, X_ERROR,
 		    "Unknown bit depth %d\n", mode->bits);
 	return NULL;
     }
-	
-    create->width = mode->x_res;
-    create->height = mode->y_res;
-    create->stride = - mode->stride;
-    create->format = mode->bits;
-    create->position = 0; /* What is this? The Windows driver doesn't use it */
-    create->flags = 0;
-    create->type = QXL_SURF_TYPE_PRIMARY;
-    create->mem = physical_address (cache->qxl, cache->qxl->ram, cache->qxl->main_mem_slot);
 
-    qxl_io_create_primary(qxl);
+    bo = qxl->bo_funcs->create_primary(qxl, mode->x_res, mode->y_res, mode->stride, mode->bits);
 
-    dev_addr = (uint8_t *)qxl->ram + mode->stride * (mode->y_res - 1);
-
+    dev_addr = qxl->bo_funcs->bo_map(bo);
     dev_image = pixman_image_create_bits (format, mode->x_res, mode->y_res,
 					  (uint32_t *)dev_addr, -mode->stride);
 
@@ -382,6 +371,7 @@ qxl_surface_cache_create_primary (qxl_screen_t *qxl,
     surface->next = NULL;
     surface->prev = NULL;
     surface->evacuated = NULL;
+    surface->bo = bo;
     
     REGION_INIT (NULL, &(surface->access_region), (BoxPtr)NULL, 0);
     surface->access_type = UXA_ACCESS_RO;
@@ -392,35 +382,36 @@ qxl_surface_cache_create_primary (qxl_screen_t *qxl,
 void *
 qxl_surface_get_host_bits(qxl_surface_t *surface)
 {
+    if (!surface)
+	return NULL;
     return (void *) pixman_image_get_data(surface->host_image);
 }
 
-static struct QXLSurfaceCmd *
+static struct qxl_bo *
 make_surface_cmd (surface_cache_t *cache, uint32_t id, QXLSurfaceCmdType type)
 {
+    struct qxl_bo *cmd_bo;
     struct QXLSurfaceCmd *cmd;
     qxl_screen_t *qxl = cache->qxl;
 
-    cmd = qxl_allocnf (qxl, sizeof *cmd, "surface command");
+    cmd_bo = qxl->bo_funcs->cmd_alloc (qxl, sizeof *cmd, "surface command");
+    cmd = qxl->bo_funcs->bo_map(cmd_bo);
 
-    cmd->release_info.id = pointer_to_u64 (cmd) | 2;
+    cmd->release_info.id = pointer_to_u64 (cmd_bo) | 2;
     cmd->type = type;
     cmd->flags = 0;
     cmd->surface_id = id;
     
-    return cmd;
+    qxl->bo_funcs->bo_unmap(cmd_bo);
+    return cmd_bo;
 }
 
 static void
-push_surface_cmd (surface_cache_t *cache, struct QXLSurfaceCmd *cmd)
+push_surface_cmd (surface_cache_t *cache, struct qxl_bo *cmd_bo)
 {
-    struct QXLCommand command;
     qxl_screen_t *qxl = cache->qxl;
-
-    command.type = QXL_CMD_SURFACE;
-    command.data = physical_address (qxl, cmd, qxl->main_mem_slot);
     
-    qxl_ring_push (qxl->command_ring, &command);
+    qxl->bo_funcs->write_command (qxl, QXL_CMD_SURFACE, cmd_bo);
 }
 
 enum ROPDescriptor
@@ -438,25 +429,25 @@ enum ROPDescriptor
     ROPD_INVERS_RES = (1 <<10),
 };
 
-static struct QXLDrawable *
+static struct qxl_bo *
 make_drawable (qxl_screen_t *qxl, qxl_surface_t *surf, uint8_t type,
 	       const struct QXLRect *rect
 	       /* , pRegion clip */)
 {
     struct QXLDrawable *drawable;
+    struct qxl_bo *draw_bo;
     int i;
-    
-    drawable = qxl_allocnf (qxl, sizeof *drawable, "drawable command");
+   
+    draw_bo = qxl->bo_funcs->cmd_alloc (qxl, sizeof *drawable, "drawable command");
+    assert(draw_bo);
+    drawable = qxl->bo_funcs->bo_map(draw_bo);
     assert(drawable);
     
-    drawable->release_info.id = pointer_to_u64 (drawable);
+    drawable->release_info.id = pointer_to_u64 (draw_bo);
     
     drawable->type = type;
     
-    if (surf)
-	drawable->surface_id = surf->id;		/* Only primary for now */
-    else
-	drawable->surface_id = 0;
+    qxl->bo_funcs->bo_output_surf_reloc(qxl, offsetof(struct QXLDrawable, surface_id), draw_bo, surf);
 
     drawable->effect = QXL_EFFECT_OPAQUE;
     drawable->self_bitmap = 0;
@@ -480,41 +471,27 @@ make_drawable (qxl_screen_t *qxl, qxl_surface_t *surf, uint8_t type,
 	drawable->bbox = *rect;
     
     drawable->mm_time = qxl->rom->mm_clock;
-    
-    return drawable;
+
+    qxl->bo_funcs->bo_unmap(draw_bo);
+    return draw_bo;
 }
 
 static void
-push_drawable (qxl_screen_t *qxl, struct QXLDrawable *drawable)
+push_drawable (qxl_screen_t *qxl, struct qxl_bo *drawable_bo)
 {
-    struct QXLCommand cmd;
-    
-    /* When someone runs "init 3", the device will be 
-     * switched into VGA mode and there is nothing we
-     * can do about it. We get no notification.
-     * 
-     * However, if commands are submitted when the device
-     * is in VGA mode, they will be queued up, and then
-     * the next time a mode set set, an assertion in the
-     * device will take down the entire virtual machine.
-     */
-    if (qxl->pScrn->vtSema)
-    {
-	cmd.type = QXL_CMD_DRAW;
-	cmd.data = physical_address (qxl, drawable, qxl->main_mem_slot);
-	
-	qxl_ring_push (qxl->command_ring, &cmd);
-    }
+    qxl->bo_funcs->write_command (qxl, QXL_CMD_DRAW, drawable_bo);
 }
 
 static void
 submit_fill (qxl_screen_t *qxl, qxl_surface_t *surf,
 	     const struct QXLRect *rect, uint32_t color)
 {
+    struct qxl_bo *drawable_bo;
     struct QXLDrawable *drawable;
     
-    drawable = make_drawable (qxl, surf, QXL_DRAW_FILL, rect);
+    drawable_bo = make_drawable (qxl, surf, QXL_DRAW_FILL, rect);
     
+    drawable = qxl->bo_funcs->bo_map(drawable_bo);
     drawable->u.fill.brush.type = SPICE_BRUSH_TYPE_SOLID;
     drawable->u.fill.brush.u.color = color;
     drawable->u.fill.rop_descriptor = ROPD_OP_PUT;
@@ -523,7 +500,9 @@ submit_fill (qxl_screen_t *qxl, qxl_surface_t *surf,
     drawable->u.fill.mask.pos.y = 0;
     drawable->u.fill.mask.bitmap = 0;
     
-    push_drawable (qxl, drawable);
+    qxl->bo_funcs->bo_unmap(drawable_bo);
+
+    push_drawable (qxl, drawable_bo);
 }
 
 static qxl_surface_t *
@@ -576,8 +555,8 @@ surface_send_create (surface_cache_t *cache,
     int n_attempts = 0;
     qxl_screen_t *qxl = cache->qxl;
     qxl_surface_t *surface;
-    void *address;
-
+    struct qxl_bo *bo, *cmd_bo;
+    void *dev_ptr;
     get_formats (bpp, &format, &pformat);
     
     width = align (width);
@@ -591,9 +570,9 @@ surface_send_create (surface_cache_t *cache,
      */
     qxl_garbage_collect (qxl);
 retry2:
-    address = qxl_alloc (qxl->surf_mem, stride * height + stride, "surface memory");
+    bo = qxl_ums_surf_mem_alloc(qxl, stride * height + stride);
 
-    if (!address)
+    if (!bo)
     {
 	ErrorF ("- %dth attempt\n", n_attempts++);
 
@@ -623,30 +602,31 @@ retry:
 	if (!qxl_handle_oom (cache->qxl))
 	{
 	    ErrorF ("  Out of surfaces\n");
-	    qxl_free (qxl->surf_mem, address, "surface memory");
+	    qxl->bo_funcs->bo_decref (qxl, bo);
 	    return NULL;
 	}
 	else
 	    goto retry;
     }
 
-    surface->address = address;    
-    surface->end = (char *)address + stride * height;
+    surface->bo = bo;
     
-    cmd = make_surface_cmd (cache, surface->id, QXL_SURFACE_CMD_CREATE);
+    cmd_bo = make_surface_cmd (cache, surface->id, QXL_SURFACE_CMD_CREATE);
 
+    cmd = qxl->bo_funcs->bo_map(cmd_bo);
     cmd->u.surface_create.format = format;
     cmd->u.surface_create.width = width;
     cmd->u.surface_create.height = height;
     cmd->u.surface_create.stride = - stride;
+    qxl->bo_funcs->bo_unmap(cmd_bo);
 
-    cmd->u.surface_create.data =
-      physical_address (qxl, surface->address, qxl->vram_mem_slot);
+    qxl->bo_funcs->bo_output_bo_reloc(qxl, offsetof(struct QXLSurfaceCmd, u.surface_create.data), cmd_bo, surface->bo);
 
-    push_surface_cmd (cache, cmd);
+    push_surface_cmd (cache, cmd_bo);
 
+    dev_ptr = qxl->bo_funcs->bo_map(surface->bo);
     dev_addr
-	= (uint32_t *)((uint8_t *)surface->address + stride * (height - 1));
+	= (uint32_t *)((uint8_t *)dev_ptr + stride * (height - 1));
 
     surface->dev_image = pixman_image_create_bits (
 	pformat, width, height, dev_addr, - stride);
@@ -654,6 +634,7 @@ retry:
     surface->host_image = pixman_image_create_bits (
 	pformat, width, height, NULL, -1);
 
+    qxl->bo_funcs->bo_unmap(surface->bo);
     surface->bpp = bpp;
 
     n_live++;
@@ -751,7 +732,7 @@ unlink_surface (qxl_surface_t *surface)
 static void
 surface_destroy (qxl_surface_t *surface)
 {
-    struct QXLSurfaceCmd *cmd;
+    struct qxl_bo *cmd_bo;
 
     if (surface->dev_image)
 	pixman_image_unref (surface->dev_image);
@@ -761,9 +742,11 @@ surface_destroy (qxl_surface_t *surface)
 #if 0
     ErrorF("destroy %ld\n", (long int)surface->end - (long int)surface->address);
 #endif
-    cmd = make_surface_cmd (surface->cache, surface->id, QXL_SURFACE_CMD_DESTROY);
+    cmd_bo = make_surface_cmd (surface->cache, surface->id, QXL_SURFACE_CMD_DESTROY);
 
-    push_surface_cmd (surface->cache, cmd);
+    push_surface_cmd (surface->cache, cmd_bo);
+
+    surface->cache->qxl->bo_funcs->bo_decref(surface->cache->qxl, surface->bo);
 }
 
 static void
@@ -907,16 +890,7 @@ download_box_no_update (qxl_surface_t *surface, int x1, int y1, int x2, int y2)
 static void
 download_box (qxl_surface_t *surface, int x1, int y1, int x2, int y2)
 {
-    struct QXLRam *ram_header = get_ram_header (surface->cache->qxl);
-    
-    ram_header->update_area.top = y1;
-    ram_header->update_area.bottom = y2;
-    ram_header->update_area.left = x1;
-    ram_header->update_area.right = x2;
-    
-    ram_header->update_surface = surface->id;
-
-    qxl_update_area(surface->cache->qxl);
+    surface->qxl->bo_funcs->update_area(surface, x1, y1, x2, y2);
 
     download_box_no_update(surface, x1, y1, x2, y2);
 }
@@ -995,7 +969,7 @@ real_upload_box (qxl_surface_t *surface, int x1, int y1, int x2, int y2)
 {
     struct QXLRect rect;
     struct QXLDrawable *drawable;
-    struct QXLImage *image;
+    struct qxl_bo *image_bo, *drawable_bo;
     qxl_screen_t *qxl = surface->qxl;
     uint32_t *data;
     int stride;
@@ -1005,7 +979,8 @@ real_upload_box (qxl_surface_t *surface, int x1, int y1, int x2, int y2)
     rect.top = y1;
     rect.bottom = y2;
     
-    drawable = make_drawable (qxl, surface, QXL_DRAW_COPY, &rect);
+    drawable_bo = make_drawable (qxl, surface, QXL_DRAW_COPY, &rect);
+    drawable = qxl->bo_funcs->bo_map(drawable_bo);
     drawable->u.copy.src_area = rect;
     translate_rect (&drawable->u.copy.src_area);
     drawable->u.copy.rop_descriptor = ROPD_OP_PUT;
@@ -1015,16 +990,19 @@ real_upload_box (qxl_surface_t *surface, int x1, int y1, int x2, int y2)
     drawable->u.copy.mask.pos.y = 0;
     drawable->u.copy.mask.bitmap = 0;
 
+    qxl->bo_funcs->bo_unmap(drawable_bo);
+
     data = pixman_image_get_data (surface->host_image);
     stride = pixman_image_get_stride (surface->host_image);
     
-    image = qxl_image_create (
+    image_bo = qxl_image_create (
 	qxl, (const uint8_t *)data, x1, y1, x2 - x1, y2 - y1, stride, 
 	surface->bpp == 24 ? 4 : surface->bpp / 8, TRUE);
-    drawable->u.copy.src_bitmap =
-	physical_address (qxl, image, qxl->main_mem_slot);
-    
-    push_drawable (qxl, drawable);
+    qxl->bo_funcs->bo_output_bo_reloc(qxl, offsetof(QXLDrawable, u.copy.src_bitmap),
+				   drawable_bo, image_bo);
+    push_drawable (qxl, drawable_bo);
+
+    qxl->bo_funcs->bo_decref(qxl, image_bo);
 }
 
 #define TILE_WIDTH 512
@@ -1056,8 +1034,8 @@ static void
 upload_one_primary_region(qxl_screen_t *qxl, PixmapPtr pixmap, BoxPtr b)
 {
     struct QXLRect rect;
+    struct qxl_bo *drawable_bo, *image_bo;
     struct QXLDrawable *drawable;
-    struct QXLImage *image;
     FbBits *data;
     int stride;
     int bpp;
@@ -1067,7 +1045,8 @@ upload_one_primary_region(qxl_screen_t *qxl, PixmapPtr pixmap, BoxPtr b)
     rect.top = b->y1;
     rect.bottom = b->y2;
 
-    drawable = make_drawable (qxl, NULL, QXL_DRAW_COPY, &rect);
+    drawable_bo = make_drawable (qxl, NULL, QXL_DRAW_COPY, &rect);
+    drawable = qxl->bo_funcs->bo_map(drawable_bo);
     drawable->u.copy.src_area = rect;
     translate_rect (&drawable->u.copy.src_area);
     drawable->u.copy.rop_descriptor = ROPD_OP_PUT;
@@ -1076,15 +1055,17 @@ upload_one_primary_region(qxl_screen_t *qxl, PixmapPtr pixmap, BoxPtr b)
     drawable->u.copy.mask.pos.x = 0;
     drawable->u.copy.mask.pos.y = 0;
     drawable->u.copy.mask.bitmap = 0;
+    qxl->bo_funcs->bo_unmap(drawable_bo);
 
     fbGetPixmapBitsData(pixmap, data, stride, bpp);
-    image = qxl_image_create (
+    image_bo = qxl_image_create (
 	qxl, (const uint8_t *)data, b->x1, b->y1, b->x2 - b->x1, b->y2 - b->y1, stride * sizeof(*data),
 	bpp == 24 ? 4 : bpp / 8, TRUE);
-    drawable->u.copy.src_bitmap =
-	physical_address (qxl, image, qxl->main_mem_slot);
+    qxl->bo_funcs->bo_output_bo_reloc(qxl, offsetof(QXLDrawable, u.copy.src_bitmap),
+				   drawable_bo, image_bo);
 
-    push_drawable (qxl, drawable);
+    push_drawable (qxl, drawable_bo);
+    qxl->bo_funcs->bo_decref(qxl, image_bo);
 }
 
 void
@@ -1326,6 +1307,7 @@ qxl_surface_copy (qxl_surface_t *dest,
 		  int width, int height)
 {
     qxl_screen_t *qxl = dest->qxl;
+    struct qxl_bo *drawable_bo;
     struct QXLDrawable *drawable;
     struct QXLRect qrect;
 
@@ -1341,26 +1323,36 @@ qxl_surface_copy (qxl_surface_t *dest,
     
     if (dest->id == dest->u.copy_src->id)
     {
-	drawable = make_drawable (qxl, dest, QXL_COPY_BITS, &qrect);
+	drawable_bo = make_drawable (qxl, dest, QXL_COPY_BITS, &qrect);
 
+	drawable = qxl->bo_funcs->bo_map(drawable_bo);
 	drawable->u.copy_bits.src_pos.x = src_x1;
 	drawable->u.copy_bits.src_pos.y = src_y1;
+	qxl->bo_funcs->bo_unmap(drawable_bo);
+
+	push_drawable (qxl, drawable_bo);
+
     }
     else
     {
-	struct QXLImage *image = qxl_allocnf (qxl, sizeof *image, "surface image struct");
+	struct qxl_bo *image_bo;
+	struct QXLImage *image;
 
 	dest->u.copy_src->ref_count++;
-
+	image_bo = qxl->bo_funcs->bo_alloc (qxl, sizeof(struct QXLImage), "image struct for surface");
+	image = qxl->bo_funcs->bo_map(image_bo);
 	image->descriptor.id = 0;
 	image->descriptor.type = SPICE_IMAGE_TYPE_SURFACE;
 	image->descriptor.width = 0;
 	image->descriptor.height = 0;
 	image->surface_image.surface_id = dest->u.copy_src->id;
+	qxl->bo_funcs->bo_unmap(image_bo);
 
-	drawable = make_drawable (qxl, dest, QXL_DRAW_COPY, &qrect);
+	drawable_bo = make_drawable (qxl, dest, QXL_DRAW_COPY, &qrect);
 
-	drawable->u.copy.src_bitmap = physical_address (qxl, image, qxl->main_mem_slot);
+	drawable = qxl->bo_funcs->bo_map(drawable_bo);
+	qxl->bo_funcs->bo_output_bo_reloc(qxl, offsetof(QXLDrawable, u.copy.src_bitmap),
+				       drawable_bo, image_bo);
 	drawable->u.copy.src_area.left = src_x1;
 	drawable->u.copy.src_area.top = src_y1;
 	drawable->u.copy.src_area.right = src_x1 + width;
@@ -1372,7 +1364,7 @@ qxl_surface_copy (qxl_surface_t *dest,
 	drawable->u.copy.mask.pos.y = 0;
 	drawable->u.copy.mask.bitmap = 0;
 
-	drawable->surfaces_dest[0] = dest->u.copy_src->id;
+	qxl->bo_funcs->bo_output_surf_reloc(qxl, offsetof(struct QXLDrawable, surfaces_dest[0]), drawable_bo, dest->u.copy_src);
 	drawable->surfaces_rects[0] = drawable->u.copy.src_area;
  	
 	assert (src_x1 >= 0);
@@ -1386,9 +1378,11 @@ qxl_surface_copy (qxl_surface_t *dest,
 	
 	assert (width <= pixman_image_get_width (dest->u.copy_src->host_image));
 	assert (height <= pixman_image_get_height (dest->u.copy_src->host_image));
-    }
 
-    push_drawable (qxl, drawable);
+	qxl->bo_funcs->bo_unmap(drawable_bo);
+	push_drawable (qxl, drawable_bo);
+	qxl->bo_funcs->bo_decref(qxl, image_bo);
+    }
 }
 
 /* composite */
@@ -1412,13 +1406,14 @@ qxl_surface_prepare_composite (int op,
     return TRUE;
 }
 
-static QXLImage *
+static struct qxl_bo *
 image_from_picture (qxl_screen_t *qxl,
 		    PicturePtr picture,
 		    qxl_surface_t *surface,
 		    int *force_opaque)
 {
-    struct QXLImage *image = qxl_allocnf (qxl, sizeof *image, "image struct for picture");
+    struct qxl_bo *image_bo = qxl->bo_funcs->bo_alloc (qxl, sizeof(struct QXLImage), "image struct for surface");
+    struct QXLImage *image = qxl->bo_funcs->bo_map(image_bo);
 
     image->descriptor.id = 0;
     image->descriptor.type = SPICE_IMAGE_TYPE_SURFACE;
@@ -1426,20 +1421,22 @@ image_from_picture (qxl_screen_t *qxl,
     image->descriptor.height = 0;
     image->surface_image.surface_id = surface->id;
 
+    qxl->bo_funcs->bo_unmap(image_bo);
     if (picture->format == PICT_x8r8g8b8)
 	*force_opaque = TRUE;
     else
 	*force_opaque = FALSE;
     
-    return image;
+    return image_bo;
 }
 
-static QXLTransform *
+static struct qxl_bo *
 get_transform (qxl_screen_t *qxl, PictTransform *transform)
 {
     if (transform)
     {
-	QXLTransform *qxform = qxl_allocnf (qxl, sizeof (QXLTransform), "transform");
+	struct qxl_bo *qxform_bo = qxl->bo_funcs->bo_alloc (qxl, sizeof (QXLTransform), "transform");
+	QXLTransform *qxform = qxl->bo_funcs->bo_map(qxform_bo);
 
 	qxform->t00 = transform->matrix[0][0];
 	qxform->t01 = transform->matrix[0][1];
@@ -1448,7 +1445,8 @@ get_transform (qxl_screen_t *qxl, PictTransform *transform)
 	qxform->t11 = transform->matrix[1][1];
 	qxform->t12 = transform->matrix[1][2];
 
-	return qxform;
+	qxl->bo_funcs->bo_unmap(qxform_bo);
+	return qxform_bo;
     }
     else
     {
@@ -1484,13 +1482,14 @@ qxl_surface_composite (qxl_surface_t *dest,
     qxl_surface_t *qmask = dest->u.composite.mask;
     int op = dest->u.composite.op;
     struct QXLDrawable *drawable;
+    struct qxl_bo *drawable_bo;
     QXLComposite *composite;
     QXLRect rect;
-    QXLImage *img;
-    QXLTransform *trans;
+    struct qxl_bo *trans_bo, *img_bo;
     int n_deps = 0;
     int force_opaque;
-
+    struct qxl_bo *derefs[4];
+    int n_derefs = 0, i;
 #if 0
     ErrorF ("QXL Composite: src:       %x (%d %d) id: %d; \n"
 	    "               mask:      id: %d\n"
@@ -1511,7 +1510,9 @@ qxl_surface_composite (qxl_surface_t *dest,
     rect.top = dest_y;
     rect.bottom = dest_y + height;
     
-    drawable = make_drawable (qxl, dest, QXL_DRAW_COMPOSITE, &rect);
+    drawable_bo = make_drawable (qxl, dest, QXL_DRAW_COMPOSITE, &rect);
+
+    drawable = qxl->bo_funcs->bo_map(drawable_bo);
 
     composite = &drawable->u.composite;
 
@@ -1522,38 +1523,53 @@ qxl_surface_composite (qxl_surface_t *dest,
     
     composite->flags |= (op & 0xff);
 
-    img = image_from_picture (qxl, src, qsrc, &force_opaque);
+    img_bo = image_from_picture (qxl, src, qsrc, &force_opaque);
     if (force_opaque)
 	composite->flags |= SPICE_COMPOSITE_SOURCE_OPAQUE;
-    composite->src = physical_address (qxl, img, qxl->main_mem_slot);
+    qxl->bo_funcs->bo_output_bo_reloc(qxl, offsetof(QXLDrawable, u.composite.src),
+				   drawable_bo, img_bo);
+    derefs[n_derefs++] = img_bo;
+
     composite->flags |= (src->filter << 8);
     composite->flags |= (src->repeat << 14);
-    trans = get_transform (qxl, src->transform);
-    composite->src_transform = trans?
-	physical_address (qxl, trans, qxl->main_mem_slot) : 0x00000000;
+    trans_bo = get_transform (qxl, src->transform);
+    if (trans_bo) {
+	qxl->bo_funcs->bo_output_bo_reloc(qxl, offsetof(QXLDrawable, u.composite.src_transform),
+				       drawable_bo, trans_bo);
+	derefs[n_derefs++] = trans_bo;
+    } else
+	composite->src_transform = 0;
 
-    drawable->surfaces_dest[n_deps] = qsrc->id;
+    qxl->bo_funcs->bo_output_surf_reloc(qxl, offsetof(struct QXLDrawable, surfaces_dest[n_deps]), drawable_bo, qsrc);
     drawable->surfaces_rects[n_deps] = full_rect (qsrc);
 
     n_deps++;
     
     if (mask)
     {
-	img = image_from_picture (qxl, mask, qmask, &force_opaque);
+	img_bo = image_from_picture (qxl, mask, qmask, &force_opaque);
 	if (force_opaque)
 	    composite->flags |= SPICE_COMPOSITE_MASK_OPAQUE;
-	composite->mask = physical_address (qxl, img, qxl->main_mem_slot);
+
+	qxl->bo_funcs->bo_output_bo_reloc(qxl, offsetof(QXLDrawable, u.composite.mask),
+				       drawable_bo, img_bo);
+	derefs[n_derefs++] = img_bo;
 	composite->flags |= (mask->filter << 11);
 	composite->flags |= (mask->repeat << 16);
 	composite->flags |= (mask->componentAlpha << 18);
 
-	drawable->surfaces_dest[n_deps] = qmask->id;
+	qxl->bo_funcs->bo_output_surf_reloc(qxl, offsetof(struct QXLDrawable, surfaces_dest[n_deps]), drawable_bo, qmask);
 	drawable->surfaces_rects[n_deps] = full_rect (qmask);
 	n_deps++;
 	
-	trans = get_transform (qxl, src->transform);
-	composite->mask_transform = trans?
-	    physical_address (qxl, trans, qxl->main_mem_slot) : 0x00000000;
+	trans_bo = get_transform (qxl, src->transform);
+	if (trans_bo) {
+	    qxl->bo_funcs->bo_output_bo_reloc(qxl, offsetof(QXLDrawable, u.composite.mask_transform),
+					   drawable_bo, trans_bo);
+	    derefs[n_derefs++] = trans_bo;
+	}
+	else
+	  composite->mask_transform = 0;
     }
     else
     {
@@ -1561,7 +1577,7 @@ qxl_surface_composite (qxl_surface_t *dest,
 	composite->mask_transform = 0x00000000;
     }
 
-    drawable->surfaces_dest[n_deps] = dest->id;
+    qxl->bo_funcs->bo_output_surf_reloc(qxl, offsetof(struct QXLDrawable, surfaces_dest[n_deps]), drawable_bo, dest);
     drawable->surfaces_rects[n_deps] = full_rect (dest);
     
     composite->src_origin.x = src_x;
@@ -1571,7 +1587,11 @@ qxl_surface_composite (qxl_surface_t *dest,
 
     drawable->effect = QXL_EFFECT_BLEND;
     
-    push_drawable (qxl, drawable);
+    qxl->bo_funcs->bo_unmap(drawable_bo);
+    push_drawable (qxl, drawable_bo);
+
+    for (i = 0; i < n_derefs; i++)
+      qxl->bo_funcs->bo_decref(qxl, derefs[i]);
 }
 
 Bool
@@ -1579,18 +1599,20 @@ qxl_surface_put_image (qxl_surface_t *dest,
 		       int x, int y, int width, int height,
 		       const char *src, int src_pitch)
 {
+    struct qxl_bo *drawable_bo;
     struct QXLDrawable *drawable;
     qxl_screen_t *qxl = dest->qxl;
     struct QXLRect rect;
-    struct QXLImage *image;
-    
+    struct qxl_bo *image_bo;
+
     rect.left = x;
     rect.right = x + width;
     rect.top = y;
     rect.bottom = y + height;
 
-    drawable = make_drawable (qxl, dest, QXL_DRAW_COPY, &rect);
+    drawable_bo = make_drawable (qxl, dest, QXL_DRAW_COPY, &rect);
 
+    drawable = qxl->bo_funcs->bo_map(drawable_bo);
     drawable->u.copy.src_area.top = 0;
     drawable->u.copy.src_area.bottom = height;
     drawable->u.copy.src_area.left = 0;
@@ -1603,13 +1625,15 @@ qxl_surface_put_image (qxl_surface_t *dest,
     drawable->u.copy.mask.pos.y = 0;
     drawable->u.copy.mask.bitmap = 0;
 
-    image = qxl_image_create (
+    image_bo = qxl_image_create (
 	qxl, (const uint8_t *)src, 0, 0, width, height, src_pitch,
 	dest->bpp == 24 ? 4 : dest->bpp / 8, FALSE);
-    drawable->u.copy.src_bitmap =
-	physical_address (qxl, image, qxl->main_mem_slot);
-    
-    push_drawable (qxl, drawable);
+    qxl->bo_funcs->bo_output_bo_reloc(qxl, offsetof(QXLDrawable, u.copy.src_bitmap),
+				   drawable_bo, image_bo);
 
+    qxl->bo_funcs->bo_unmap(drawable_bo);
+    
+    push_drawable (qxl, drawable_bo);
+    qxl->bo_funcs->bo_decref(qxl, image_bo);    
     return TRUE;
 }

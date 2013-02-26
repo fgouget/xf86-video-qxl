@@ -16,9 +16,7 @@ struct qxl_surface_t
     uxa_access_t	access_type;
     RegionRec		access_region;
 
-    void *		address;
-    void *		end;
-    
+    struct qxl_bo   *bo;
     struct qxl_surface_t *	next;
     struct qxl_surface_t *	prev;	/* Only used in the 'live'
 				 * chain in the surface cache

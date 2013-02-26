@@ -32,36 +32,29 @@
 #include <cursorstr.h>
 
 static void
-push_cursor (qxl_screen_t *qxl, struct QXLCursorCmd *cursor)
+push_cursor (qxl_screen_t *qxl, struct qxl_bo *cursor_bo)
 {
-    struct QXLCommand cmd;
-
-    /* See comment on push_command() in qxl_driver.c */
-    if (qxl->pScrn->vtSema)
-    {
-        cmd.type = QXL_CMD_CURSOR;
-        cmd.data = physical_address (qxl, cursor, qxl->main_mem_slot);
-      
-        qxl_ring_push (qxl->cursor_ring, &cmd);
-    }
+    qxl->bo_funcs->write_command (qxl, QXL_CMD_CURSOR, cursor_bo);
 }
 
-static struct QXLCursorCmd *
+static struct qxl_bo *
 qxl_alloc_cursor_cmd(qxl_screen_t *qxl)
 {
-    struct QXLCursorCmd *cmd =
-	qxl_allocnf (qxl, sizeof(struct QXLCursorCmd), "cursor command");
+    struct qxl_bo *bo = qxl->bo_funcs->cmd_alloc (qxl, sizeof(struct QXLCursorCmd), "cursor command");
+    struct QXLCursorCmd *cmd = qxl->bo_funcs->bo_map(bo);
 
-    cmd->release_info.id = pointer_to_u64 (cmd) | 1;
+    cmd->release_info.id = pointer_to_u64 (bo) | 1;
     
-    return cmd;
+    qxl->bo_funcs->bo_unmap(bo);
+    return bo;
 }
 
 static void
 qxl_set_cursor_position(ScrnInfoPtr pScrn, int x, int y)
 {
     qxl_screen_t *qxl = pScrn->driverPrivate;
-    struct QXLCursorCmd *cmd = qxl_alloc_cursor_cmd(qxl);
+    struct qxl_bo *cmd_bo = qxl_alloc_cursor_cmd(qxl);
+    struct QXLCursorCmd *cmd = qxl->bo_funcs->bo_map(cmd_bo);
 
     qxl->cur_x = x;
     qxl->cur_y = y;
@@ -70,7 +63,8 @@ qxl_set_cursor_position(ScrnInfoPtr pScrn, int x, int y)
     cmd->u.position.x = qxl->cur_x + qxl->hot_x;
     cmd->u.position.y = qxl->cur_y + qxl->hot_y;
     
-    push_cursor(qxl, cmd);
+    qxl->bo_funcs->bo_unmap(cmd_bo);
+    push_cursor(qxl, cmd_bo);
 }
 
 static void
@@ -92,9 +86,10 @@ qxl_load_cursor_argb (ScrnInfoPtr pScrn, CursorPtr pCurs)
     int h = pCurs->bits->height;
     int size = w * h * sizeof (CARD32);
 
-    struct QXLCursorCmd *cmd = qxl_alloc_cursor_cmd (qxl);
-    struct QXLCursor *cursor =
-	qxl_allocnf(qxl, sizeof(struct QXLCursor) + size, "cursor data");
+    struct qxl_bo *cmd_bo = qxl_alloc_cursor_cmd(qxl);
+    struct QXLCursorCmd *cmd;
+    struct qxl_bo *cursor_bo = qxl->bo_funcs->bo_alloc(qxl, sizeof(struct QXLCursor) + size, "cursor data");
+    struct QXLCursor *cursor = qxl->bo_funcs->bo_map(cursor_bo);
 
     cursor->header.unique = 0;
     cursor->header.type = SPICE_CURSOR_TYPE_ALPHA;
@@ -128,16 +123,21 @@ qxl_load_cursor_argb (ScrnInfoPtr pScrn, CursorPtr pCurs)
     }
 #endif
 
+    qxl->bo_funcs->bo_unmap(cursor_bo);
+
     qxl->hot_x = pCurs->bits->xhot;
     qxl->hot_y = pCurs->bits->yhot;
     
+    cmd = qxl->bo_funcs->bo_map(cmd_bo);
     cmd->type = QXL_CURSOR_SET;
     cmd->u.set.position.x = qxl->cur_x + qxl->hot_x;
     cmd->u.set.position.y = qxl->cur_y + qxl->hot_y;
-    cmd->u.set.shape = physical_address (qxl, cursor, qxl->main_mem_slot);
-    cmd->u.set.visible = TRUE;
+    qxl->bo_funcs->bo_output_bo_reloc(qxl, offsetof(struct QXLCursorCmd, u.set.shape), cmd_bo, cursor_bo);
 
-    push_cursor(qxl, cmd);
+    cmd->u.set.visible = TRUE;
+    qxl->bo_funcs->bo_unmap(cmd_bo);
+
+    push_cursor(qxl, cmd_bo);
 }    
 
 static Bool
@@ -159,11 +159,13 @@ static void
 qxl_hide_cursor(ScrnInfoPtr pScrn)
 {
     qxl_screen_t *qxl = pScrn->driverPrivate;
-    struct QXLCursorCmd *cursor = qxl_alloc_cursor_cmd(qxl);
+    struct qxl_bo *cmd_bo = qxl_alloc_cursor_cmd(qxl);
+    struct QXLCursorCmd *cursor = qxl->bo_funcs->bo_map(cmd_bo);
 
     cursor->type = QXL_CURSOR_HIDE;
 
-    push_cursor(qxl, cursor);
+    qxl->bo_funcs->bo_unmap(cmd_bo);
+    push_cursor(qxl, cmd_bo);
 }
 
 static void

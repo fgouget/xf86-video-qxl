@@ -45,6 +45,7 @@
 #include "micmap.h"
 #include "uxa/uxa.h"
 
+#include "list.h"
 #ifndef XSPICE
 #ifdef XSERVER_PCIACCESS
 #include "pciaccess.h"
@@ -139,6 +140,42 @@ enum {
     QXL_DEVICE_PRIMARY_CREATED,
 };
 
+struct qxl_bo;
+/*
+ * for relocations
+ * dst_bo + dst_offset are the bo and offset into which the reloc is being written,
+ * src_bo is the bo who's offset is being relocated.
+ */
+struct qxl_bo_funcs {
+    struct qxl_bo *(*bo_alloc)(qxl_screen_t *qxl, unsigned long size, const char *name);
+    struct qxl_bo *(*cmd_alloc)(qxl_screen_t *qxl, unsigned long size, const char *name);
+    void *(*bo_map)(struct qxl_bo *bo);
+    void (*bo_unmap)(struct qxl_bo *bo);
+    void (*bo_decref)(qxl_screen_t *qxl, struct qxl_bo *bo);
+    void (*bo_incref)(qxl_screen_t *qxl, struct qxl_bo *bo);
+    void (*bo_output_bo_reloc)(qxl_screen_t *qxl, uint32_t dst_offset,
+			       struct qxl_bo *dst_bo, struct qxl_bo *src_bo);
+    void (*write_command)(qxl_screen_t *qxl, uint32_t type, struct qxl_bo *bo);
+    void (*update_area)(qxl_surface_t *surf, int x1, int y1, int x2, int y2);
+    struct qxl_bo *(*create_primary)(qxl_screen_t *qxl, uint32_t width, uint32_t height, int32_t stride, uint32_t format);
+    void (*destroy_primary)(qxl_screen_t *qxl, struct qxl_bo *primary_bo);
+
+    qxl_surface_t *(*create_surface)(qxl_screen_t *qxl, int width,
+				     int height, int bpp);
+    void (*destroy_surface)(qxl_surface_t *surf);
+
+    void (*bo_output_surf_reloc)(qxl_screen_t *qxl, uint32_t dst_offset,
+				 struct qxl_bo *dst_bo,
+				 qxl_surface_t *surf);
+  /* surface create / destroy */
+};
+    
+void qxl_ums_setup_funcs(qxl_screen_t *qxl);
+
+/* ums specific functions */
+struct qxl_bo *qxl_ums_surf_mem_alloc(qxl_screen_t *qxl, uint32_t size);
+struct qxl_bo *qxl_ums_lookup_phy_addr(qxl_screen_t *qxl, uint64_t phy_addr);
+
 struct _qxl_screen_t
 {
     /* These are the names QXL uses */
@@ -153,7 +190,7 @@ struct _qxl_screen_t
     struct qxl_ring *		release_ring;
 
     int                         device_primary;
-    
+    struct qxl_bo *             primary_bo;
     int				num_modes;
     struct QXLMode *		modes;
     int				io_base;
@@ -268,6 +305,9 @@ struct _qxl_screen_t
 
     uint32_t           deferred_fps;
 #endif /* XSPICE */
+
+    struct xorg_list ums_bos;
+    struct qxl_bo_funcs *bo_funcs;
 };
 
 typedef struct qxl_output_private {
@@ -461,7 +501,7 @@ void qxl_allocate_monitors_config (qxl_screen_t *qxl);
 /*
  * Images
  */
-struct QXLImage *qxl_image_create     (qxl_screen_t           *qxl,
+struct qxl_bo *qxl_image_create     (qxl_screen_t           *qxl,
 				       const uint8_t          *data,
 				       int                     x,
 				       int                     y,
@@ -471,7 +511,7 @@ struct QXLImage *qxl_image_create     (qxl_screen_t           *qxl,
 				       int                     Bpp,
 				       Bool		       fallback);
 void              qxl_image_destroy    (qxl_screen_t           *qxl,
-					struct QXLImage       *image);
+				        struct qxl_bo *bo);
 void		  qxl_drop_image_cache (qxl_screen_t	       *qxl);
 
 
@@ -484,12 +524,6 @@ struct qxl_mem *  qxl_mem_create       (void                   *base,
 					unsigned long           n_bytes);
 void              qxl_mem_dump_stats   (struct qxl_mem         *mem,
 					const char             *header);
-void *            qxl_alloc            (struct qxl_mem         *mem,
-					unsigned long           n_bytes,
-					const char *            name);
-void              qxl_free             (struct qxl_mem         *mem,
-					void                   *d,
-					const char *            name);
 void              qxl_mem_free_all     (struct qxl_mem         *mem);
 void *            qxl_allocnf          (qxl_screen_t           *qxl,
 					unsigned long           size,
