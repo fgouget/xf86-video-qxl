@@ -437,7 +437,7 @@ enum ROPDescriptor
 };
 
 static struct QXLDrawable *
-make_drawable (qxl_screen_t *qxl, int surface, uint8_t type,
+make_drawable (qxl_screen_t *qxl, qxl_surface_t *surf, uint8_t type,
 	       const struct QXLRect *rect
 	       /* , pRegion clip */)
 {
@@ -451,7 +451,11 @@ make_drawable (qxl_screen_t *qxl, int surface, uint8_t type,
     
     drawable->type = type;
     
-    drawable->surface_id = surface;		/* Only primary for now */
+    if (surf)
+	drawable->surface_id = surf->id;		/* Only primary for now */
+    else
+	drawable->surface_id = 0;
+
     drawable->effect = QXL_EFFECT_OPAQUE;
     drawable->self_bitmap = 0;
     drawable->self_bitmap_area.top = 0;
@@ -502,12 +506,12 @@ push_drawable (qxl_screen_t *qxl, struct QXLDrawable *drawable)
 }
 
 static void
-submit_fill (qxl_screen_t *qxl, int id,
+submit_fill (qxl_screen_t *qxl, qxl_surface_t *surf,
 	     const struct QXLRect *rect, uint32_t color)
 {
     struct QXLDrawable *drawable;
     
-    drawable = make_drawable (qxl, id, QXL_DRAW_FILL, rect);
+    drawable = make_drawable (qxl, surf, QXL_DRAW_FILL, rect);
     
     drawable->u.fill.brush.type = SPICE_BRUSH_TYPE_SOLID;
     drawable->u.fill.brush.u.color = color;
@@ -999,7 +1003,7 @@ real_upload_box (qxl_surface_t *surface, int x1, int y1, int x2, int y2)
     rect.top = y1;
     rect.bottom = y2;
     
-    drawable = make_drawable (qxl, surface->id, QXL_DRAW_COPY, &rect);
+    drawable = make_drawable (qxl, surface, QXL_DRAW_COPY, &rect);
     drawable->u.copy.src_area = rect;
     translate_rect (&drawable->u.copy.src_area);
     drawable->u.copy.rop_descriptor = ROPD_OP_PUT;
@@ -1061,7 +1065,7 @@ upload_one_primary_region(qxl_screen_t *qxl, PixmapPtr pixmap, BoxPtr b)
     rect.top = b->y1;
     rect.bottom = b->y2;
 
-    drawable = make_drawable (qxl, 0, QXL_DRAW_COPY, &rect);
+    drawable = make_drawable (qxl, NULL, QXL_DRAW_COPY, &rect);
     drawable->u.copy.src_area = rect;
     translate_rect (&drawable->u.copy.src_area);
     drawable->u.copy.rop_descriptor = ROPD_OP_PUT;
@@ -1294,7 +1298,7 @@ qxl_surface_solid (qxl_surface_t *destination,
 
     p = destination->u.solid_pixel;
     
-    submit_fill (qxl, destination->id, &qrect, p);
+    submit_fill (qxl, destination, &qrect, p);
 }
 
 /* copy */
@@ -1335,7 +1339,7 @@ qxl_surface_copy (qxl_surface_t *dest,
     
     if (dest->id == dest->u.copy_src->id)
     {
-	drawable = make_drawable (qxl, dest->id, QXL_COPY_BITS, &qrect);
+	drawable = make_drawable (qxl, dest, QXL_COPY_BITS, &qrect);
 
 	drawable->u.copy_bits.src_pos.x = src_x1;
 	drawable->u.copy_bits.src_pos.y = src_y1;
@@ -1352,7 +1356,7 @@ qxl_surface_copy (qxl_surface_t *dest,
 	image->descriptor.height = 0;
 	image->surface_image.surface_id = dest->u.copy_src->id;
 
-	drawable = make_drawable (qxl, dest->id, QXL_DRAW_COPY, &qrect);
+	drawable = make_drawable (qxl, dest, QXL_DRAW_COPY, &qrect);
 
 	drawable->u.copy.src_bitmap = physical_address (qxl, image, qxl->main_mem_slot);
 	drawable->u.copy.src_area.left = src_x1;
@@ -1505,7 +1509,7 @@ qxl_surface_composite (qxl_surface_t *dest,
     rect.top = dest_y;
     rect.bottom = dest_y + height;
     
-    drawable = make_drawable (qxl, dest->id, QXL_DRAW_COMPOSITE, &rect);
+    drawable = make_drawable (qxl, dest, QXL_DRAW_COMPOSITE, &rect);
 
     composite = &drawable->u.composite;
 
@@ -1583,7 +1587,7 @@ qxl_surface_put_image (qxl_surface_t *dest,
     rect.top = y;
     rect.bottom = y + height;
 
-    drawable = make_drawable (qxl, dest->id, QXL_DRAW_COPY, &rect);
+    drawable = make_drawable (qxl, dest, QXL_DRAW_COPY, &rect);
 
     drawable->u.copy.src_area.top = 0;
     drawable->u.copy.src_area.bottom = height;
