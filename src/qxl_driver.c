@@ -258,10 +258,15 @@ qxl_unmap_memory (qxl_screen_t *qxl)
     {
 	qxl_mem_free_all (qxl->mem);
 	qxl_drop_image_cache (qxl);
+	free(qxl->mem);
+	qxl->mem = NULL;
     }
     
-    if (qxl->surf_mem)
+    if (qxl->surf_mem) {
 	qxl_mem_free_all (qxl->surf_mem);
+	free(qxl->surf_mem);
+	qxl->surf_mem = NULL;
+    }
     
     unmap_memory_helper (qxl);
     qxl->ram = qxl->ram_physical = qxl->vram = qxl->rom = NULL;
