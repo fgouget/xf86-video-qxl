@@ -358,7 +358,7 @@ qxl_create_pixmap (ScreenPtr screen, int w, int h, int depth, unsigned usage)
 	goto fallback;
     }
 
-    surface = qxl_surface_create (qxl->surface_cache, w, h, depth);
+    surface = qxl_surface_create (qxl, w, h, depth);
 
     if (surface)
     {

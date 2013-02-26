@@ -315,17 +315,17 @@ qxl_surface_recycle (surface_cache_t *cache, uint32_t id)
  * will be the containing virtual size.
  */
 qxl_surface_t *
-qxl_surface_cache_create_primary (surface_cache_t	*cache,
+qxl_surface_cache_create_primary (qxl_screen_t *qxl,
 				  struct QXLMode	*mode)
 {
     struct QXLRam *ram_header =
-	(void *)((unsigned long)cache->qxl->ram + cache->qxl->rom->ram_header_offset);
+	(void *)((unsigned long)qxl->ram + qxl->rom->ram_header_offset);
     struct QXLSurfaceCreate *create = &(ram_header->create_surface);
     pixman_format_code_t format;
     uint8_t *dev_addr;
     pixman_image_t *dev_image, *host_image;
     qxl_surface_t *surface;
-    qxl_screen_t *qxl = cache->qxl;
+    surface_cache_t *cache = qxl->surface_cache;
 
     if (mode->bits == 16)
     {
@@ -656,14 +656,15 @@ retry:
 }
 
 qxl_surface_t *
-qxl_surface_create (surface_cache_t *    cache,
+qxl_surface_create (qxl_screen_t *qxl,
 		    int			 width,
 		    int			 height,
 		    int			 bpp)
 {
     qxl_surface_t *surface;
+    surface_cache_t *cache = qxl->surface_cache;
 
-    if (!cache->qxl->enable_surfaces)
+    if (!qxl->enable_surfaces)
 	return NULL;
     
     if ((bpp & 3) != 0)
@@ -1208,7 +1209,7 @@ qxl_surface_cache_replace_all (surface_cache_t *cache, void *data)
 	int height = pixman_image_get_height (ev->image);
 	qxl_surface_t *surface;
 
-	surface = qxl_surface_create (cache, width, height, ev->bpp);
+	surface = qxl_surface_create (cache->qxl, width, height, ev->bpp);
 
 	assert (surface->host_image);
 	assert (surface->dev_image);

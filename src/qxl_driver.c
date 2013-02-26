@@ -484,7 +484,7 @@ qxl_create_primary(qxl_screen_t *qxl)
     pm->y_mili = 0; // TODO
     pm->orientation = 0; // ? supported by us for single head usage? more TODO
 
-    return qxl_surface_cache_create_primary (qxl->surface_cache, &qxl->primary_mode);
+    return qxl_surface_cache_create_primary (qxl, &qxl->primary_mode);
 }
 
 static Bool
