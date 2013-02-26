@@ -48,4 +48,7 @@ struct qxl_surface_t
     } u;
 };
 
+void
+qxl_download_box (qxl_surface_t *surface, int x1, int y1, int x2, int y2);
+
 #endif
