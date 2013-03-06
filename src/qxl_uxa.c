@@ -34,6 +34,9 @@
 #endif
 
 #include "qxl.h"
+#ifdef XSPICE
+#include "dfps.h"
+#endif
 #include <spice/protocol.h>
 
 #if HAS_DEVPRIVATEKEYREC
