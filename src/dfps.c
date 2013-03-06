@@ -253,6 +253,7 @@ static PixmapPtr dfps_create_pixmap (ScreenPtr screen, int w, int h, int depth, 
     info = calloc(1, sizeof(*info));
     if (!info)
         return FALSE;
+    RegionInit(&info->updated_region, NULL, 0);
 
     pixmap = fbCreatePixmap (screen, w, h, depth, usage);
     if (pixmap)
