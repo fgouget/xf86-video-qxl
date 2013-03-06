@@ -294,7 +294,7 @@ upload_one_primary_region(qxl_screen_t *qxl, PixmapPtr pixmap, BoxPtr b)
     rect.top = b->y1;
     rect.bottom = b->y2;
 
-    drawable_bo = make_drawable (qxl, NULL, QXL_DRAW_COPY, &rect);
+    drawable_bo = make_drawable (qxl, qxl->primary, QXL_DRAW_COPY, &rect);
     drawable = qxl->bo_funcs->bo_map(drawable_bo);
     drawable->u.copy.src_area = rect;
     translate_rect (&drawable->u.copy.src_area);
