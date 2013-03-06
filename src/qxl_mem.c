@@ -273,7 +273,7 @@ qxl_garbage_collect_internal (qxl_screen_t *qxl, uint64_t id)
      */
 #define POINTER_MASK ((1 << 2) - 1)
 
-    struct qxl_bo *info_bo = (struct qxl_bo *)(id & ~POINTER_MASK);
+    struct qxl_bo *info_bo = (struct qxl_bo *)u64_to_pointer(id & ~POINTER_MASK);
     union QXLReleaseInfo *info = qxl->bo_funcs->bo_map(info_bo);
     struct QXLCursorCmd *cmd = (struct QXLCursorCmd *)info;
     struct QXLDrawable *drawable = (struct QXLDrawable *)info;
