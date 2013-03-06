@@ -257,8 +257,8 @@ real_upload_box (qxl_surface_t *surface, int x1, int y1, int x2, int y2)
 #define TILE_WIDTH 512
 #define TILE_HEIGHT 512
 
-static void
-upload_box (qxl_surface_t *surface, int x1, int y1, int x2, int y2)
+void
+qxl_upload_box (qxl_surface_t *surface, int x1, int y1, int x2, int y2)
 {
     int tile_x1, tile_y1;
 
@@ -351,14 +351,14 @@ qxl_surface_finish_access (qxl_surface_t *surface, PixmapPtr pixmap)
 	{
 	    while (n_boxes--)
 	    {
-		upload_box (surface, boxes->x1, boxes->y1, boxes->x2, boxes->y2);
+		qxl_upload_box (surface, boxes->x1, boxes->y1, boxes->x2, boxes->y2);
 		
 		boxes++;
 	    }
 	}
 	else
 	{
-	    upload_box (surface,
+	    qxl_upload_box (surface,
 			surface->access_region.extents.x1,
 			surface->access_region.extents.y1,
 			surface->access_region.extents.x2,

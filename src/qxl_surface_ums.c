@@ -864,7 +864,7 @@ qxl_surface_cache_replace_all (surface_cache_t *cache, void *data)
 	pixman_image_unref (surface->host_image);
 	surface->host_image = ev->image;
 
-	upload_box (surface, 0, 0, width, height);
+	qxl_upload_box (surface, 0, 0, width, height);
 
 	set_surface (ev->pixmap, surface);
 
