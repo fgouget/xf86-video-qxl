@@ -1029,7 +1029,6 @@ qxl_pre_init (ScrnInfoPtr pScrn, int flags)
 	pScrn->driverPrivate = xnfcalloc (sizeof (qxl_screen_t), 1);
     
     qxl = pScrn->driverPrivate;
-    memset (qxl, 0, sizeof (qxl));
     qxl->device_primary = QXL_DEVICE_PRIMARY_UNDEFINED;
     qxl->pScrn = pScrn;
     qxl->x_modes = NULL;
