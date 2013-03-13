@@ -64,11 +64,11 @@ extern void compat_init_scrn (ScrnInfoPtr);
 const OptionInfoRec DefaultOptions[] =
 {
     { OPTION_ENABLE_IMAGE_CACHE,
-      "EnableImageCache",         OPTV_BOOLEAN, { 0 }, TRUE },
+      "EnableImageCache",         OPTV_BOOLEAN, { 1 }, FALSE },
     { OPTION_ENABLE_FALLBACK_CACHE,
-      "EnableFallbackCache",      OPTV_BOOLEAN, { 0 }, TRUE },
+      "EnableFallbackCache",      OPTV_BOOLEAN, { 1 }, FALSE },
     { OPTION_ENABLE_SURFACES,
-      "EnableSurfaces",           OPTV_BOOLEAN, { 0 }, TRUE },
+      "EnableSurfaces",           OPTV_BOOLEAN, { 1 }, FALSE },
     { OPTION_NUM_HEADS,
       "NumHeads",                 OPTV_INTEGER, { 4 }, FALSE },
 #ifdef XSPICE
@@ -970,11 +970,11 @@ qxl_pre_init_common(ScrnInfoPtr pScrn)
     xf86ProcessOptions (scrnIndex, pScrn->options, qxl->options);
 
     qxl->enable_image_cache =
-        xf86ReturnOptValBool (qxl->options, OPTION_ENABLE_IMAGE_CACHE, TRUE);
+        get_bool_option(qxl->options, OPTION_ENABLE_IMAGE_CACHE, "QXL_ENABLE_IMAGE_CACHE");
     qxl->enable_fallback_cache =
-        xf86ReturnOptValBool (qxl->options, OPTION_ENABLE_FALLBACK_CACHE, TRUE);
+        get_bool_option(qxl->options, OPTION_ENABLE_FALLBACK_CACHE, "QXL_ENABLE_FALLBACK_CACHE");
     qxl->enable_surfaces =
-        xf86ReturnOptValBool (qxl->options, OPTION_ENABLE_SURFACES, TRUE);
+        get_bool_option(qxl->options, OPTION_ENABLE_SURFACES, "QXL_ENABLE_SURFACES");
     qxl->num_heads =
         get_int_option (qxl->options, OPTION_NUM_HEADS, "QXL_NUM_HEADS");
 

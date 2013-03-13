@@ -79,6 +79,18 @@ Section "Device"
 
     # If set, the Spice Server will exit when the first client disconnects
     #Option "SpiceExitOnDisconnect" "1"
+
+    # Enable caching of images directly written with uxa->put_image
+    # defaults to True
+    #Option "EnableImageCache" "True"
+
+    # Enable caching of images created by uxa->prepare_access
+    # defaults to True
+    #Option "EnableFallbackCache" "True"
+
+    # Enable the use of off screen srufaces
+    # defaults to True
+    #Option "EnableSurfaces" "True"
 EndSection
 
 Section "InputDevice"
