@@ -91,6 +91,22 @@ Section "Device"
     # Enable the use of off screen srufaces
     # defaults to True
     #Option "EnableSurfaces" "True"
+
+    # The number of heads to allocate by default
+    # defaults to 4
+    #Option "NumHeads" "4"
+
+    # Set Spice Agent Mouse
+    # defaults to false
+    #Option "SpiceAgentMouse" "False"
+
+    # Set Spice Playback compression
+    # defaults to true
+    #Option "SpicePlaybackCompression" "True"
+
+    # Disable copy and paste
+    # defaults to false
+    #Option "SpiceDisableCopyPaste" "False"
 EndSection
 
 Section "InputDevice"
