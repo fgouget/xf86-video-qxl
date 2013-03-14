@@ -21,6 +21,7 @@ import os
 import sys
 import tempfile
 import atexit
+import time
 
 def which(x):
     for p in os.environ['PATH'].split(':'):
@@ -47,6 +48,7 @@ parser = argparse.ArgumentParser("Xspice",
     epilog="Any options not parsed by Xspice get passed to Xorg as is.")
 parser.add_argument('--xorg', default=which('Xorg'))
 parser.add_argument('--auto', action='store_true', help='Automatically create a temporary xorg.conf and start the X server')
+parser.add_argument('--xsession', help='If given, will run after Xorg launch.  Should be a program like x-session-manager')
 parser.add_argument('--config', default='spiceqxl.xorg.conf')
 # Don't use any options that are already used by Xorg (unless we must)
 # specifically, don't use -p and -s.
@@ -191,14 +193,30 @@ for arg in var_args:
             a = str(a)
         os.environ['XSPICE_' + arg.upper()] = a
 
+display=""
+for arg in xorg_args:
+    if arg.startswith(":"):
+        display = arg
+
 exec_args = [args.xorg, '-config', args.config]
 if cgdb and args.cgdb:
     exec_args = [cgdb, '--args'] + exec_args
     args.xorg = cgdb
 
 xpid = os.spawnv(os.P_NOWAIT, args.xorg, exec_args + xorg_args)
-try:
-    os.waitpid(xpid, 0)
-except KeyboardInterrupt:
-# Catch Ctrl-C as that is the common way of ending this script
-    print "Keyboard Interrupt"
+time.sleep(2)
+
+retpid,rc = os.waitpid(xpid, os.WNOHANG)
+if retpid != 0:
+    print "Error: X server is not running"
+else:
+    if args.xsession:
+        environ = os.environ
+        environ ['DISPLAY'] = display
+        os.spawnlpe(os.P_NOWAIT, args.xsession, environ)
+
+    try:
+        os.waitpid(xpid, 0)
+    except KeyboardInterrupt:
+        # Catch Ctrl-C as that is the common way of ending this script
+        print "Keyboard Interrupt"
