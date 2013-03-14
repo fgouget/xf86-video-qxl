@@ -51,6 +51,8 @@ parser.add_argument('--config', default='spiceqxl.xorg.conf')
 # Don't use any options that are already used by Xorg (unless we must)
 # specifically, don't use -p and -s.
 parser.add_argument('--port', type=int, help='standard spice port')
+parser.add_argument('--exit-on-disconnect', action='store_true', help='Exit the X server when any client disconnects')
+parser.add_argument('--deferred-fps', type=int, help='If given, render to a buffer and send updates only this many times per second')
 parser.add_argument('--tls-port', type=int, help='spice tls port', default=0)
 add_boolean('--disable-ticketing', help="do not require a client password")
 add_boolean('--sasl', help="enable sasl")
@@ -80,9 +82,7 @@ add_boolean('--ipv6-only')
 
 #TODO
 #Option "SpiceAddr" ""
-#Option "SpiceDeferredFPS" "10"
 #add_boolean('--agent-mouse')
-#Option "SpiceExitOnDisconnect" "1"
 #Option "EnableImageCache" "True"
 #Option "EnableFallbackCache" "True"
 #Option "EnableSurfaces" "True"
@@ -178,10 +178,18 @@ var_args = ['port', 'tls_port', 'disable_ticketing',
     'x509_key_file', 'x509_key_password',
     'tls_ciphers', 'dh_file', 'password', 'image_compression',
     'jpeg_wan_compression', 'zlib_glz_wan_compression',
-    'streaming_video']
+    'streaming_video', 'deferred_fps', 'exit_on_disconnect']
 for arg in var_args:
     if getattr(args, arg):
-        os.environ['XSPICE_' + arg.upper()] = str(getattr(args, arg))
+        # The Qxl code doesn't respect booleans, so pass them as 0/1
+        a = getattr(args, arg)
+        if a == True:
+            a = "1"
+        elif a == False:
+            a = "0"
+        else:
+            a = str(a)
+        os.environ['XSPICE_' + arg.upper()] = a
 
 exec_args = [args.xorg, '-config', args.config]
 if cgdb and args.cgdb:
