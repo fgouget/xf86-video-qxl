@@ -19,6 +19,8 @@ which can be overridden as well.
 import argparse
 import os
 import sys
+import tempfile
+import atexit
 
 def which(x):
     for p in os.environ['PATH'].split(':'):
@@ -44,6 +46,7 @@ parser = argparse.ArgumentParser("Xspice",
     usage="Xspice [Xspice and Xorg options intermixed]",
     epilog="Any options not parsed by Xspice get passed to Xorg as is.")
 parser.add_argument('--xorg', default=which('Xorg'))
+parser.add_argument('--auto', action='store_true', help='Automatically create a temporary xorg.conf and start the X server')
 parser.add_argument('--config', default='spiceqxl.xorg.conf')
 # Don't use any options that are already used by Xorg (unless we must)
 # specifically, don't use -p and -s.
@@ -119,6 +122,57 @@ def error(msg, exit_code=1):
 if not args.xorg:
     error("Xorg missing")
 
+def cleanup():
+    if os.path.isfile(cf.name + ".log"):
+        os.remove(cf.name + ".log")
+
+if args.auto:
+    atexit.register(cleanup)   
+    cf = tempfile.NamedTemporaryFile(prefix="Xspice-", delete=True)
+    args.config = cf.name
+    xorg_args = [ '-logfile', cf.name + ".log" ] + xorg_args
+    cf.write("""
+Section "Device"
+    Identifier "XSPICE"
+    Driver "spiceqxl"
+EndSection
+
+Section "InputDevice"
+    Identifier "XSPICE POINTER"
+    Driver     "xspice pointer"
+EndSection
+
+Section "InputDevice"
+    Identifier "XSPICE KEYBOARD"
+    Driver     "xspice keyboard"
+EndSection
+
+Section "Monitor"
+    Identifier    "Configured Monitor"
+EndSection
+
+Section "Screen"
+    Identifier     "XSPICE Screen"
+    Monitor        "Configured Monitor"
+    Device         "XSPICE"
+EndSection
+
+Section "ServerLayout"
+    Identifier "XSPICE Example"
+    Screen "XSPICE Screen"
+    InputDevice "XSPICE KEYBOARD"
+    InputDevice "XSPICE POINTER"
+EndSection
+
+# Prevent udev from loading vmmouse in a vm and crashing.
+Section "ServerFlags"
+    Option "AutoAddDevices" "False"
+EndSection
+
+
+    """)
+    cf.flush()
+
 var_args = ['port', 'tls_port', 'disable_ticketing',
     'x509_dir', 'sasl', 'cacert_file', 'x509_cert_file',
     'x509_key_file', 'x509_key_password',
@@ -134,4 +188,9 @@ if cgdb and args.cgdb:
     exec_args = [cgdb, '--args'] + exec_args
     args.xorg = cgdb
 
-os.execv(args.xorg, exec_args + xorg_args)
+xpid = os.spawnv(os.P_NOWAIT, args.xorg, exec_args + xorg_args)
+try:
+    os.waitpid(xpid, 0)
+except KeyboardInterrupt:
+# Catch Ctrl-C as that is the common way of ending this script
+    print "Keyboard Interrupt"
