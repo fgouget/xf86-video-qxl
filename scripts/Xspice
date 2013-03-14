@@ -70,16 +70,25 @@ parser.add_argument('--zlib-glz-wan-compression',
                     choices=wan_compression_options,
                     default='auto', help='auto by default')
 # TODO - sound support
-#parser.add_argument('--playback-compression', choices=['0', '1'], default='1', help='enabled by default')
 parser.add_argument('--streaming-video', choices=['off', 'all', 'filter'],
                     default='filter', help='filter by default')
 add_boolean('--ipv4-only')
 add_boolean('--ipv6-only')
 
+#TODO
+#Option "SpiceAddr" ""
+#Option "SpiceDeferredFPS" "10"
+#add_boolean('--agent-mouse')
+#Option "SpiceExitOnDisconnect" "1"
+#Option "EnableImageCache" "True"
+#Option "EnableFallbackCache" "True"
+#Option "EnableSurfaces" "True"
+#Option "NumHeads" "4"
+#parser.add_argument('--playback-compression', choices=['0', '1'], default='1', help='enabled by default')
+#Option "SpiceDisableCopyPaste" "False"
+
 if cgdb:
     parser.add_argument('--cgdb', action='store_true', default=False)
-# TODO:
-#add_boolean(parser, '--agent-mouse')
 
 args, xorg_args = parser.parse_known_args(sys.argv[1:])
 
