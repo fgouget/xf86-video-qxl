@@ -130,6 +130,7 @@ enum {
     OPTION_SPICE_DH_FILE,
     OPTION_SPICE_DEFERRED_FPS,
     OPTION_SPICE_EXIT_ON_DISCONNECT,
+    OPTION_SPICE_PLAYBACK_FIFO_DIR,
 #endif
     OPTION_COUNT,
 };
@@ -284,8 +285,11 @@ struct _qxl_screen_t
     QXLWorker *         worker;
     int                 worker_running;
     QXLInstance         display_sin;
+    SpicePlaybackInstance playback_sin;
     /* XSpice specific, dragged from the Device */
     QXLReleaseInfo     *last_release;
+
+    pthread_t audio_thread;
 
     uint32_t           cmdflags;
     uint32_t           oom_running;
@@ -304,6 +308,8 @@ struct _qxl_screen_t
     } guest_primary;
 
     uint32_t           deferred_fps;
+
+    char playback_fifo_dir[PATH_MAX];
 #endif /* XSPICE */
 
     struct xorg_list ums_bos;

@@ -82,6 +82,8 @@ spiceqxl_drv_la_SOURCES =				\
 	spiceqxl_main_loop.h		\
 	spiceqxl_display.c			\
 	spiceqxl_display.h			\
+	spiceqxl_audio.c			\
+	spiceqxl_audio.h			\
 	spiceqxl_inputs.c			\
 	spiceqxl_inputs.h			\
 	qxl_driver.c				\

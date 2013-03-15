@@ -55,6 +55,7 @@
 #include "spiceqxl_io_port.h"
 #include "spiceqxl_spice_server.h"
 #include "dfps.h"
+#include "spiceqxl_audio.h"
 #endif /* XSPICE */
 
 extern void compat_init_scrn (ScrnInfoPtr);
@@ -121,6 +122,8 @@ const OptionInfoRec DefaultOptions[] =
       "SpiceDeferredFPS",         OPTV_INTEGER,   {0}, FALSE},
     { OPTION_SPICE_EXIT_ON_DISCONNECT,
       "SpiceExitOnDisconnect",    OPTV_BOOLEAN,   {0}, FALSE},
+    { OPTION_SPICE_PLAYBACK_FIFO_DIR,
+      "SpicePlaybackFIFODir",     OPTV_STRING,    {0}, FALSE},
 #endif
     
     { -1, NULL, OPTV_NONE, {0}, FALSE }
@@ -639,6 +642,7 @@ spiceqxl_screen_init (ScrnInfoPtr pScrn, qxl_screen_t *qxl)
 	qxl->core = basic_event_loop_init ();
 	spice_server_init (qxl->spice_server, qxl->core);
 	qxl_add_spice_display_interface (qxl);
+	qxl_add_spice_playback_interface (qxl);
 	qxl->worker->start (qxl->worker);
 	qxl->worker_running = TRUE;
         if (qxl->deferred_fps)
@@ -1007,7 +1011,10 @@ qxl_pre_init (ScrnInfoPtr pScrn, int flags)
     //int *linePitches = NULL;
     //DisplayModePtr mode;
     unsigned int max_x, max_y;
-    
+#ifdef XSPICE
+    const char *playback_fifo_dir;
+#endif
+
     /* In X server 1.7.5, Xorg -configure will cause this
      * function to get called without a confScreen.
      */
@@ -1052,6 +1059,15 @@ qxl_pre_init (ScrnInfoPtr pScrn, int flags)
 
     if (!qxl_pre_init_common(pScrn))
 	goto out;
+
+#ifdef XSPICE
+    playback_fifo_dir = get_str_option(qxl->options, OPTION_SPICE_PLAYBACK_FIFO_DIR,
+               "XSPICE_PLAYBACK_FIFO_DIR");
+    if (playback_fifo_dir)
+        strncpy(qxl->playback_fifo_dir, playback_fifo_dir, sizeof(qxl->playback_fifo_dir));
+    else
+        qxl->playback_fifo_dir[0] = '\0';
+#endif
 
     if (!qxl_map_memory (qxl, scrnIndex))
 	goto out;
