@@ -613,16 +613,6 @@ qxl_create_screen_resources (ScreenPtr pScreen)
         set_surface (pPixmap, qxl->primary);
     }
 
-    /* HACK - I don't want to enable any crtcs other then the first at the beginning */
-    for (i = 1; i < qxl->num_heads; ++i)
-    {
-	qxl_output_private *private;
-
-	qxl->crtcs[i]->enabled = 0;
-	private = qxl->outputs[i]->driver_private;
-	private->status = XF86OutputStatusDisconnected;
-    }
-    
     qxl_create_desired_modes (qxl);
     qxl_update_edid (qxl);
     

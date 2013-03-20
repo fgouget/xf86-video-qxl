@@ -494,7 +494,7 @@ qxl_init_randr (ScrnInfoPtr pScrn, qxl_screen_t *qxl)
 	output->driver_private = qxl_output;
 	qxl_output->head = i;
 	qxl_output->qxl = qxl;
-	qxl_output->status = XF86OutputStatusConnected;
+	qxl_output->status = i ? XF86OutputStatusDisconnected : XF86OutputStatusConnected;
 	qxl_crtc->output = output;
     }
 
