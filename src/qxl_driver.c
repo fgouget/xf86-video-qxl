@@ -590,7 +590,6 @@ qxl_create_screen_resources (ScreenPtr pScreen)
     Bool           ret;
     PixmapPtr      pPixmap;
     qxl_surface_t *surf;
-    int            i;
     
     pScreen->CreateScreenResources = qxl->create_screen_resources;
     ret = pScreen->CreateScreenResources (pScreen);

@@ -137,7 +137,6 @@ qxl_image_create (qxl_screen_t *qxl, const uint8_t *data,
 	image_info_t *info;
 	struct QXLImage *image;
 	struct qxl_bo *head_bo, *tail_bo;
-	struct QXLDataChunk *tail;
 	struct qxl_bo *image_bo;
 	int dest_stride = (width * Bpp + 3) & (~3);
 	int h;
