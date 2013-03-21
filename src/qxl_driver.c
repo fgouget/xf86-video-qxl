@@ -62,6 +62,12 @@ extern void compat_init_scrn (ScrnInfoPtr);
 
 #define BREAKPOINT()   do { __asm__ __volatile__ ("int $03"); } while (0)
 
+#ifdef XSPICE
+static char filter_str[] = "filter";
+static char auto_str[]   = "auto";
+static char auto_glz_str[]   = "auto_glz";
+#endif
+static char driver_name[] = QXL_DRIVER_NAME;
 const OptionInfoRec DefaultOptions[] =
 {
     { OPTION_ENABLE_IMAGE_CACHE,
@@ -93,15 +99,15 @@ const OptionInfoRec DefaultOptions[] =
     { OPTION_SPICE_X509_KEY_FILE,
       "SpiceX509KeyFile",         OPTV_STRING,    {0}, FALSE},
     { OPTION_SPICE_STREAMING_VIDEO,
-      "SpiceStreamingVideo",      OPTV_STRING,    {.str = "filter"}, FALSE},
+      "SpiceStreamingVideo",      OPTV_STRING,    {.str = filter_str}, FALSE},
     { OPTION_SPICE_PLAYBACK_COMPRESSION,
       "SpicePlaybackCompression", OPTV_BOOLEAN,   {1}, FALSE},
     { OPTION_SPICE_ZLIB_GLZ_WAN_COMPRESSION,
-      "SpiceZlibGlzWanCompression", OPTV_STRING,  {.str = "auto"}, FALSE},
+      "SpiceZlibGlzWanCompression", OPTV_STRING,  {.str = auto_str}, FALSE},
     { OPTION_SPICE_JPEG_WAN_COMPRESSION,
-      "SpiceJpegWanCompression",  OPTV_STRING,    {.str = "auto"}, FALSE},
+      "SpiceJpegWanCompression",  OPTV_STRING,    {.str = auto_str}, FALSE},
     { OPTION_SPICE_IMAGE_COMPRESSION,
-      "SpiceImageCompression",    OPTV_STRING,    {.str = "auto_glz"}, FALSE},
+      "SpiceImageCompression",    OPTV_STRING,    {.str = auto_glz_str}, FALSE},
     { OPTION_SPICE_DISABLE_COPY_PASTE,
       "SpiceDisableCopyPaste",    OPTV_BOOLEAN,   {0}, FALSE},
     { OPTION_SPICE_IPV4_ONLY,
@@ -1197,8 +1203,8 @@ static void
 qxl_init_scrn (ScrnInfoPtr pScrn)
 {
     pScrn->driverVersion    = 0;
-    pScrn->driverName       = QXL_DRIVER_NAME;
-    pScrn->name             = QXL_DRIVER_NAME;
+    pScrn->driverName       = driver_name;
+    pScrn->name             = driver_name;
     pScrn->PreInit          = qxl_pre_init;
     pScrn->ScreenInit       = qxl_screen_init;
     pScrn->SwitchMode       = qxl_switch_mode;
@@ -1222,7 +1228,7 @@ qxl_probe (struct _DriverRec *drv, int flags)
     pScrn = xf86AllocateScreen (drv, flags);
     qxl_init_scrn (pScrn);
     
-    xf86MatchDevice (QXL_DRIVER_NAME, &device);
+    xf86MatchDevice (driver_name, &device);
     entityIndex = xf86ClaimNoSlot (drv, 0, device[0], TRUE);
     pEnt = xf86GetEntityInfo (entityIndex);
     pEnt->driver = drv;
@@ -1314,7 +1320,7 @@ qxl_pci_probe (DriverPtr drv, int entity, struct pci_device *dev, intptr_t match
 
 static DriverRec qxl_driver = {
     0,
-    QXL_DRIVER_NAME,
+    driver_name,
     qxl_identify,
     qxl_probe,
     qxl_available_options,
@@ -1358,7 +1364,7 @@ qxl_setup (pointer module, pointer opts, int *errmaj, int *errmin)
 
 static XF86ModuleVersionInfo qxl_module_info =
 {
-    QXL_DRIVER_NAME,
+    driver_name,
     MODULEVENDORSTRING,
     MODINFOSTRING1,
     MODINFOSTRING2,

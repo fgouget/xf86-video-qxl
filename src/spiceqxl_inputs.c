@@ -46,9 +46,10 @@ void XSpicePointerUnInit(InputDriverPtr drv, InputInfoPtr pInfo, int flags);
 static
 void XSpiceKeyboardUnInit(InputDriverPtr drv, InputInfoPtr pInfo, int flags);
 
+static char xspice_pointer_name[] = "xspice pointer";
 static InputDriverRec XSPICE_POINTER = {
     1,
-    "xspice pointer",
+    xspice_pointer_name,
     NULL,
     XSpicePointerPreInit,
     XSpicePointerUnInit,
@@ -56,9 +57,10 @@ static InputDriverRec XSPICE_POINTER = {
     NULL /* defaults */
 };
 
+static char xspice_keyboard_name[] = "xspice keyboard";
 static InputDriverRec XSPICE_KEYBOARD = {
     1,
-    "xspice keyboard",
+    xspice_keyboard_name,
     NULL,
     XSpiceKeyboardPreInit,
     XSpiceKeyboardUnInit,
@@ -149,15 +151,20 @@ static void xspice_keyboard_control(DeviceIntPtr device, KeybdCtrl *ctrl)
     }
 }
 
+static char xspice_keyboard_rules[] = "evdev";
+static char xspice_keyboard_model[] = "pc105";
+static char xspice_keyboard_layout[] = "us";
+static char xspice_keyboard_variant[] = "";
+static char xspice_keyboard_options[] = "";
 static int xspice_keyboard_proc(DeviceIntPtr pDevice, int onoff)
 {
     DevicePtr pDev = (DevicePtr)pDevice;
     XkbRMLVOSet rmlvo = {
-        .rules = "evdev",
-        .model = "pc105",
-        .layout = "us",
-        .variant = "",
-        .options = "",
+        .rules = xspice_keyboard_rules,
+        .model = xspice_keyboard_model,
+        .layout = xspice_keyboard_layout,
+        .variant = xspice_keyboard_variant,
+        .options = xspice_keyboard_options,
     };
 
     switch (onoff) {
@@ -350,6 +357,7 @@ static const SpiceTabletInterface tablet_interface = {
     .buttons            = tablet_buttons,
 };
 
+static char unknown_type_string[] = "UNKNOWN";
 static int
 XSpiceKeyboardPreInit(InputDriverPtr drv, InputInfoPtr pInfo, int flags)
 {
@@ -360,7 +368,7 @@ XSpiceKeyboardPreInit(InputDriverPtr drv, InputInfoPtr pInfo, int flags)
     kbd->pInfo = pInfo;
 
     pInfo->private = kbd;
-    pInfo->type_name = "UNKNOWN";
+    pInfo->type_name = unknown_type_string;
     pInfo->device_control = xspice_keyboard_proc;
     pInfo->read_input = NULL;
     pInfo->switch_mode = NULL;
@@ -381,7 +389,7 @@ XSpicePointerPreInit(InputDriverPtr drv, InputInfoPtr pInfo, int flags)
     spice_pointer->pInfo = pInfo;
 
     pInfo->private = NULL;
-    pInfo->type_name = "UNKNOWN";
+    pInfo->type_name = unknown_type_string;
     pInfo->device_control = xspice_pointer_proc;
     pInfo->read_input = NULL;
     pInfo->switch_mode = NULL;
