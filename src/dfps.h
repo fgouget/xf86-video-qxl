@@ -22,21 +22,6 @@
  *
  */
 
-typedef struct dfps_info_t dfps_info_t;
-
+void dfps_start_ticker(qxl_screen_t *qxl);
 void dfps_ticker(void *opaque);
 void dfps_set_uxa_functions(qxl_screen_t *qxl, ScreenPtr screen);
-
-static inline dfps_info_t *dfps_get_info (PixmapPtr pixmap)
-{
-#if HAS_DEVPRIVATEKEYREC
-    return dixGetPrivate(&pixmap->devPrivates, &uxa_pixmap_index);
-#else
-    return dixLookupPrivate(&pixmap->devPrivates, &uxa_pixmap_index);
-#endif
-}
-
-static inline void dfps_set_info (PixmapPtr pixmap, dfps_info_t *info)
-{
-    dixSetPrivate(&pixmap->devPrivates, &uxa_pixmap_index, info);
-}

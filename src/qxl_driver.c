@@ -54,9 +54,10 @@
 #include "spiceqxl_inputs.h"
 #include "spiceqxl_io_port.h"
 #include "spiceqxl_spice_server.h"
-#include "dfps.h"
 #include "spiceqxl_audio.h"
 #endif /* XSPICE */
+
+#include "dfps.h"
 
 extern void compat_init_scrn (ScrnInfoPtr);
 
@@ -78,6 +79,8 @@ const OptionInfoRec DefaultOptions[] =
       "EnableSurfaces",           OPTV_BOOLEAN, { 1 }, FALSE },
     { OPTION_NUM_HEADS,
       "NumHeads",                 OPTV_INTEGER, { 4 }, FALSE },
+    { OPTION_SPICE_DEFERRED_FPS,
+      "SpiceDeferredFPS",         OPTV_INTEGER, { 0 }, FALSE},
 #ifdef XSPICE
     { OPTION_SPICE_PORT,
       "SpicePort",                OPTV_INTEGER,   {5900}, FALSE },
@@ -124,8 +127,6 @@ const OptionInfoRec DefaultOptions[] =
       "SpiceCacertFile",          OPTV_STRING,    {0}, FALSE},
     { OPTION_SPICE_DH_FILE,
       "SpiceDhFile",              OPTV_STRING,    {0}, FALSE},
-    { OPTION_SPICE_DEFERRED_FPS,
-      "SpiceDeferredFPS",         OPTV_INTEGER,   {0}, FALSE},
     { OPTION_SPICE_EXIT_ON_DISCONNECT,
       "SpiceExitOnDisconnect",    OPTV_BOOLEAN,   {0}, FALSE},
     { OPTION_SPICE_PLAYBACK_FIFO_DIR,
@@ -543,9 +544,7 @@ qxl_resize_primary_to_virtual (qxl_screen_t *qxl)
     {
 	PixmapPtr root = pScreen->GetScreenPixmap (pScreen);
 
-#ifdef XSPICE
         if (qxl->deferred_fps <= 0)
-#endif
         {
             qxl_surface_t *surf;
 
@@ -606,9 +605,7 @@ qxl_create_screen_resources (ScreenPtr pScreen)
     
     pPixmap = pScreen->GetScreenPixmap (pScreen);
 
-#ifdef XSPICE
     if (qxl->deferred_fps <= 0)
-#endif
     {
         set_screen_pixmap_header (pScreen);
 
@@ -640,11 +637,6 @@ spiceqxl_screen_init (ScrnInfoPtr pScrn, qxl_screen_t *qxl)
 	qxl_add_spice_playback_interface (qxl);
 	qxl->worker->start (qxl->worker);
 	qxl->worker_running = TRUE;
-        if (qxl->deferred_fps)
-        {
-            qxl->frames_timer = qxl->core->timer_add(dfps_ticker, qxl);
-            qxl->core->timer_start(qxl->frames_timer, 1000 / qxl->deferred_fps);
-        }
     }
     qxl->spice_server = qxl->spice_server;
 }
@@ -802,6 +794,9 @@ qxl_screen_init (SCREEN_INIT_ARGS_DECL)
     /* bounds" */
     xf86RandR12SetTransformSupport (pScreen, TRUE);
     
+    if (qxl->deferred_fps)
+        dfps_start_ticker(qxl);
+
     return TRUE;
     
 out:
@@ -854,9 +849,7 @@ qxl_leave_vt (VT_FUNC_ARGS_DECL)
 
     pScrn->EnableDisableFBAccess (XF86_SCRN_ARG (pScrn), FALSE);
 
-#ifdef XSPICE
     if (qxl->deferred_fps <= 0)
-#endif
         qxl->vt_surfaces = qxl_surface_cache_evacuate_all (qxl->surface_cache);
 
     ioport_write (qxl, QXL_IO_RESET, 0);
@@ -977,13 +970,11 @@ qxl_pre_init_common(ScrnInfoPtr pScrn)
     qxl->num_heads =
         get_int_option (qxl->options, OPTION_NUM_HEADS, "QXL_NUM_HEADS");
 
-#ifdef XSPICE
     qxl->deferred_fps = get_int_option(qxl->options, OPTION_SPICE_DEFERRED_FPS, "XSPICE_DEFERRED_FPS");
     if (qxl->deferred_fps > 0)
         xf86DrvMsg(scrnIndex, X_INFO, "Deferred FPS: %d\n", qxl->deferred_fps);
     else
         xf86DrvMsg(scrnIndex, X_INFO, "Deferred Frames: Disabled\n");
-#endif
 
     xf86DrvMsg (scrnIndex, X_INFO, "Offscreen Surfaces: %s\n",
                 qxl->enable_surfaces ? "Enabled" : "Disabled");

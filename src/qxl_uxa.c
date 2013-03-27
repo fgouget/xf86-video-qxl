@@ -34,9 +34,7 @@
 #endif
 
 #include "qxl.h"
-#ifdef XSPICE
 #include "dfps.h"
-#endif
 #include <spice/protocol.h>
 
 #if HAS_DEVPRIVATEKEYREC
@@ -490,11 +488,9 @@ qxl_uxa_init (qxl_screen_t *qxl, ScreenPtr screen)
     qxl->uxa->uxa_major = 1;
     qxl->uxa->uxa_minor = 0;
 
-#ifdef XSPICE
     if (qxl->deferred_fps)
         dfps_set_uxa_functions(qxl, screen);
     else
-#endif
         set_uxa_functions(qxl, screen);
 
     if (!uxa_driver_init (screen, qxl->uxa))

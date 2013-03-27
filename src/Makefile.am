@@ -56,6 +56,7 @@ qxl_drv_la_SOURCES =				\
 	qxl_uxa.c			\
 	qxl_ums_mode.c                  \
 	qxl_io.c                        \
+	dfps.c				\
 	compat-api.h 
 endif
 

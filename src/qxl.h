@@ -105,6 +105,7 @@ enum {
     OPTION_ENABLE_FALLBACK_CACHE,
     OPTION_ENABLE_SURFACES,
     OPTION_NUM_HEADS,
+    OPTION_SPICE_DEFERRED_FPS,
 #ifdef XSPICE
     OPTION_SPICE_PORT,
     OPTION_SPICE_TLS_PORT,
@@ -128,7 +129,6 @@ enum {
     OPTION_SPICE_TLS_CIPHERS,
     OPTION_SPICE_CACERT_FILE,
     OPTION_SPICE_DH_FILE,
-    OPTION_SPICE_DEFERRED_FPS,
     OPTION_SPICE_EXIT_ON_DISCONNECT,
     OPTION_SPICE_PLAYBACK_FIFO_DIR,
 #endif
@@ -176,6 +176,9 @@ void qxl_ums_setup_funcs(qxl_screen_t *qxl);
 /* ums specific functions */
 struct qxl_bo *qxl_ums_surf_mem_alloc(qxl_screen_t *qxl, uint32_t size);
 struct qxl_bo *qxl_ums_lookup_phy_addr(qxl_screen_t *qxl, uint64_t phy_addr);
+
+typedef struct FrameTimer FrameTimer;
+typedef void (*FrameTimerFunc)(void *opaque);
 
 struct _qxl_screen_t
 {
@@ -275,12 +278,13 @@ struct _qxl_screen_t
     int				enable_fallback_cache;
     int				enable_surfaces;
     
+    FrameTimer *        frames_timer;
+
 #ifdef XSPICE
     /* XSpice specific */
     struct QXLRom		shadow_rom;    /* Parameter RAM */
     SpiceServer *       spice_server;
     SpiceCoreInterface *core;
-    SpiceTimer *        frames_timer;
 
     QXLWorker *         worker;
     int                 worker_running;
@@ -307,11 +311,10 @@ struct _qxl_screen_t
         uint8_t        *data, *flipped;
     } guest_primary;
 
-    uint32_t           deferred_fps;
-
     char playback_fifo_dir[PATH_MAX];
 #endif /* XSPICE */
 
+    uint32_t deferred_fps;
     struct xorg_list ums_bos;
     struct qxl_bo_funcs *bo_funcs;
 };

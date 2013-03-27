@@ -44,14 +44,65 @@
 #include "qxl.h"
 #include "dfps.h"
 
-struct dfps_info_t
+typedef struct _dfps_info_t
 {
     RegionRec   updated_region;
 
     PixmapPtr   copy_src;
     Pixel       solid_pixel;
     GCPtr       pgc;
-};
+} dfps_info_t;
+
+static inline dfps_info_t *dfps_get_info (PixmapPtr pixmap)
+{
+#if HAS_DEVPRIVATEKEYREC
+    return dixGetPrivate(&pixmap->devPrivates, &uxa_pixmap_index);
+#else
+    return dixLookupPrivate(&pixmap->devPrivates, &uxa_pixmap_index);
+#endif
+}
+
+static inline void dfps_set_info (PixmapPtr pixmap, dfps_info_t *info)
+{
+    dixSetPrivate(&pixmap->devPrivates, &uxa_pixmap_index, info);
+}
+typedef struct FrameTimer {
+    OsTimerPtr xorg_timer;
+    FrameTimerFunc func;
+    void *opaque; // also stored in xorg_timer, but needed for timer_start
+} Timer;
+
+static CARD32 xorg_timer_callback(
+    OsTimerPtr xorg_timer,
+    CARD32 time,
+    pointer arg)
+{
+    FrameTimer *timer = (FrameTimer*)arg;
+
+    timer->func(timer->opaque);
+    return 0; // if non zero xorg does a TimerSet, we don't want that.
+}
+
+static FrameTimer* timer_add(FrameTimerFunc func, void *opaque)
+{
+    FrameTimer *timer = calloc(sizeof(FrameTimer), 1);
+
+    timer->xorg_timer = TimerSet(NULL, 0, 1e9 /* TODO: infinity? */, xorg_timer_callback, timer);
+    timer->func = func;
+    timer->opaque = opaque;
+    return timer;
+}
+
+static void timer_start(FrameTimer *timer, uint32_t ms)
+{
+    TimerSet(timer->xorg_timer, 0 /* flags */, ms, xorg_timer_callback, timer);
+}
+
+void dfps_start_ticker(qxl_screen_t *qxl)
+{
+    qxl->frames_timer = timer_add(dfps_ticker, qxl);
+    timer_start(qxl->frames_timer, 1000 / qxl->deferred_fps);
+}
 
 void dfps_ticker(void *opaque)
 {
@@ -68,7 +119,7 @@ void dfps_ticker(void *opaque)
         RegionUninit(&info->updated_region);
         RegionInit(&info->updated_region, NULL, 0);
     }
-    qxl->core->timer_start(qxl->frames_timer, 1000 / qxl->deferred_fps);
+    timer_start(qxl->frames_timer, 1000 / qxl->deferred_fps);
 }
 
 
