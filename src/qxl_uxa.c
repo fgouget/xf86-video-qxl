@@ -156,7 +156,7 @@ qxl_done_copy (PixmapPtr dest)
  * Composite
  */
 static Bool
-can_accelerate_picture (PicturePtr pict)
+can_accelerate_picture (qxl_screen_t *qxl, PicturePtr pict)
 {
     if (!pict)
 	return TRUE;
@@ -165,11 +165,25 @@ can_accelerate_picture (PicturePtr pict)
 	pict->format != PICT_x8r8g8b8		&&
 	pict->format != PICT_a8)
     {
-	return FALSE;
+        if (qxl->debug_render_fallbacks)
+        {
+            ErrorF ("Image with format %x can't be accelerated \n",
+                    pict->format);
+        }
+
+        return FALSE;
     }
 
     if (!pict->pDrawable)
+    {
+        if (qxl->debug_render_fallbacks)
+        {
+            ErrorF ("Source image (of type %d) can't be accelerated\n",
+                    pict->pSourcePict->type);
+        }
+     
 	return FALSE;
+    }
 
     if (pict->transform)
     {
@@ -177,6 +191,9 @@ can_accelerate_picture (PicturePtr pict)
 	    pict->transform->matrix[2][1] != 0	||
 	    pict->transform->matrix[2][2] != pixman_int_to_fixed (1))
 	{
+            if (qxl->debug_render_fallbacks)
+                ErrorF ("Image with non-affine transform can't be accelerated\n");
+
 	    return FALSE;
 	}
     }
@@ -184,7 +201,13 @@ can_accelerate_picture (PicturePtr pict)
     if (pict->filter != PictFilterBilinear	&&
 	pict->filter != PictFilterNearest)
     {
-	return FALSE;
+        if (qxl->debug_render_fallbacks)
+        {
+            ErrorF ("Image with filter type %d can't be accelerated\n",
+                    pict->filter);
+        }
+
+        return FALSE;
     }
 
     return TRUE;
@@ -210,9 +233,29 @@ static Bool
 qxl_has_a8_surfaces (qxl_screen_t *qxl)
 {
 #ifndef XSPICE
-    return
-	qxl->pci->revision >= 4			&&
-	QXL_HAS_CAP (qxl, SPICE_DISPLAY_CAP_A8_SURFACE);
+    if (qxl->pci->revision < 4)
+    {
+        if (qxl->debug_render_fallbacks)
+        {
+            ErrorF ("No a8 surface due to revision being %d, which is < 4\n",
+                    qxl->pci->revision);
+        }
+
+        return FALSE;
+    }
+
+    if (!QXL_HAS_CAP (qxl, SPICE_DISPLAY_CAP_COMPOSITE))
+    {
+        if (qxl->debug_render_fallbacks)
+        {
+            ErrorF ("No composite due to client not providing SPICE_DISPLAY_CAP_A8_SURFACE\n");
+        }
+
+        return FALSE;
+    }
+
+    return TRUE;
+
 #else
     /* FIXME */
     return FALSE;
@@ -245,9 +288,9 @@ qxl_check_composite (int op,
     if (!qxl_has_composite (qxl))
 	return FALSE;
 
-    if (!can_accelerate_picture (pSrcPicture)	||
-	!can_accelerate_picture (pMaskPicture)	||
-	!can_accelerate_picture (pDstPicture))
+    if (!can_accelerate_picture (qxl, pSrcPicture)	||
+	!can_accelerate_picture (qxl, pMaskPicture)	||
+	!can_accelerate_picture (qxl, pDstPicture))
     {
 	return FALSE;
     }
@@ -257,6 +300,10 @@ qxl_check_composite (int op,
 	if (accelerated_ops[i] == op)
 	    goto found;
     }
+
+    if (qxl->debug_render_fallbacks)
+        ErrorF ("Compositing operator %d can't be accelerated\n", op);
+
     return FALSE;
 
 found:
