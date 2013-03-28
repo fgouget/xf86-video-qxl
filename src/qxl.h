@@ -104,6 +104,7 @@ enum {
     OPTION_ENABLE_IMAGE_CACHE = 0,
     OPTION_ENABLE_FALLBACK_CACHE,
     OPTION_ENABLE_SURFACES,
+    OPTION_DEBUG_RENDER_FALLBACKS,
     OPTION_NUM_HEADS,
     OPTION_SPICE_DEFERRED_FPS,
 #ifdef XSPICE
@@ -277,6 +278,7 @@ struct _qxl_screen_t
     int				enable_image_cache;
     int				enable_fallback_cache;
     int				enable_surfaces;
+    int                         debug_render_fallbacks;
     
     FrameTimer *        frames_timer;
 

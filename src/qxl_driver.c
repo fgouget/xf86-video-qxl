@@ -77,6 +77,8 @@ const OptionInfoRec DefaultOptions[] =
       "EnableFallbackCache",      OPTV_BOOLEAN, { 1 }, FALSE },
     { OPTION_ENABLE_SURFACES,
       "EnableSurfaces",           OPTV_BOOLEAN, { 1 }, FALSE },
+    { OPTION_DEBUG_RENDER_FALLBACKS,
+      "DebugRenderFallbacks",     OPTV_BOOLEAN, { 0 }, FALSE },
     { OPTION_NUM_HEADS,
       "NumHeads",                 OPTV_INTEGER, { 4 }, FALSE },
     { OPTION_SPICE_DEFERRED_FPS,
@@ -742,9 +744,7 @@ qxl_screen_init (SCREEN_INIT_ARGS_DECL)
     
     qxl_uxa_init (qxl, pScreen);
 
-#if 0
-    uxa_set_fallback_debug(pScreen, TRUE);
-#endif
+    uxa_set_fallback_debug (pScreen, qxl->debug_render_fallbacks);
     
     DamageSetup (pScreen);
     
@@ -962,11 +962,13 @@ qxl_pre_init_common(ScrnInfoPtr pScrn)
     xf86ProcessOptions (scrnIndex, pScrn->options, qxl->options);
 
     qxl->enable_image_cache =
-        get_bool_option(qxl->options, OPTION_ENABLE_IMAGE_CACHE, "QXL_ENABLE_IMAGE_CACHE");
+        get_bool_option (qxl->options, OPTION_ENABLE_IMAGE_CACHE, "QXL_ENABLE_IMAGE_CACHE");
     qxl->enable_fallback_cache =
-        get_bool_option(qxl->options, OPTION_ENABLE_FALLBACK_CACHE, "QXL_ENABLE_FALLBACK_CACHE");
+        get_bool_option (qxl->options, OPTION_ENABLE_FALLBACK_CACHE, "QXL_ENABLE_FALLBACK_CACHE");
     qxl->enable_surfaces =
-        get_bool_option(qxl->options, OPTION_ENABLE_SURFACES, "QXL_ENABLE_SURFACES");
+        get_bool_option (qxl->options, OPTION_ENABLE_SURFACES, "QXL_ENABLE_SURFACES");
+    qxl->debug_render_fallbacks =
+        get_bool_option (qxl->options, OPTION_DEBUG_RENDER_FALLBACKS, "QXL_DEBUG_RENDER_FALLBACKS");
     qxl->num_heads =
         get_int_option (qxl->options, OPTION_NUM_HEADS, "QXL_NUM_HEADS");
 
