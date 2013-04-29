@@ -203,6 +203,9 @@ if cgdb and args.cgdb:
     exec_args = [cgdb, '--args'] + exec_args
     args.xorg = cgdb
 
+# This is currently mandatory; the driver cannot survive a reset
+xorg_args = [ '-noreset' ] + xorg_args
+
 xpid = os.spawnv(os.P_NOWAIT, args.xorg, exec_args + xorg_args)
 time.sleep(2)
 
