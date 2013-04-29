@@ -352,6 +352,10 @@ SpiceCoreInterface *basic_event_loop_init(void)
     core.watch_update_mask = watch_update_mask;
     core.watch_remove = watch_remove;
     core.channel_event = channel_event;
-    RegisterBlockAndWakeupHandlers(xspice_block_handler, xspice_wakeup_handler, 0);
     return &core;
+}
+
+void xspice_register_handlers(void)
+{
+    RegisterBlockAndWakeupHandlers(xspice_block_handler, xspice_wakeup_handler, 0);
 }

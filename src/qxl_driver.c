@@ -637,10 +637,22 @@ spiceqxl_screen_init (ScrnInfoPtr pScrn, qxl_screen_t *qxl)
 	spice_server_init (qxl->spice_server, qxl->core);
 	qxl_add_spice_display_interface (qxl);
 	qxl_add_spice_playback_interface (qxl);
+    }
+    else
+    {
+        /* Crashes result from invalid xorg_timer pointers in
+           our watch lists because Xorg clears all timers at server reset. 
+           We would require a fairly substantial revamp of how the
+           spice server is started and operated to avoid this crash.  */
+        ErrorF("WARNING: XSPICE requires -noreset; crashes are now likely.\n");
+    }
+
+    if (! qxl->worker_running)
+    {
+        xspice_register_handlers();
 	qxl->worker->start (qxl->worker);
 	qxl->worker_running = TRUE;
     }
-    qxl->spice_server = qxl->spice_server;
 }
 
 #endif
