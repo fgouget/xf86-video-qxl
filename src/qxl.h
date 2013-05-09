@@ -54,6 +54,8 @@
 #include "vgaHW.h"
 #endif /* XSPICE */
 
+#include "qxl_drmmode.h"
+
 #include "compat-api.h"
 #define hidden _X_HIDDEN
 
@@ -173,6 +175,7 @@ struct qxl_bo_funcs {
 };
     
 void qxl_ums_setup_funcs(qxl_screen_t *qxl);
+void qxl_kms_setup_funcs(qxl_screen_t *qxl);
 
 /* ums specific functions */
 struct qxl_bo *qxl_ums_surf_mem_alloc(qxl_screen_t *qxl, uint32_t size);
@@ -180,6 +183,18 @@ struct qxl_bo *qxl_ums_lookup_phy_addr(qxl_screen_t *qxl, uint64_t phy_addr);
 
 typedef struct FrameTimer FrameTimer;
 typedef void (*FrameTimerFunc)(void *opaque);
+
+#ifdef XF86DRM_MODE
+#define MAX_RELOCS 96
+#include "qxl_drm.h"
+
+struct qxl_cmd_stream {
+  struct qxl_bo *reloc_bo[MAX_RELOCS];
+  int n_reloc_bos;
+  struct drm_qxl_reloc relocs[MAX_RELOCS];
+  int n_relocs;
+};
+#endif
 
 struct _qxl_screen_t
 {
@@ -319,6 +334,14 @@ struct _qxl_screen_t
     uint32_t deferred_fps;
     struct xorg_list ums_bos;
     struct qxl_bo_funcs *bo_funcs;
+
+    Bool kms_enabled;
+#ifdef XF86DRM_MODE
+    drmmode_rec drmmode;
+    int drm_fd;
+    struct qxl_cmd_stream cmds;
+#endif
+
 };
 
 typedef struct qxl_output_private {
@@ -568,6 +591,24 @@ void qxl_io_flush_release (qxl_screen_t *qxl);
  * qxl_edid.c
  */
 Bool qxl_output_edid_set(xf86OutputPtr output, int head, DisplayModePtr mode);
+
+Bool qxl_pre_init_common(ScrnInfoPtr pScrn);
+Bool qxl_fb_init (qxl_screen_t *qxl, ScreenPtr pScreen);
+Bool qxl_screen_init_kms(SCREEN_INIT_ARGS_DECL);
+Bool qxl_enter_vt_kms (VT_FUNC_ARGS_DECL);
+void qxl_leave_vt_kms (VT_FUNC_ARGS_DECL);
+void qxl_set_screen_pixmap_header (ScreenPtr pScreen);
+Bool qxl_resize_primary_to_virtual (qxl_screen_t *qxl);
+void qxl_get_formats (int bpp, SpiceBitmapFmt *format, pixman_format_code_t *pformat);
+
+#ifdef XF86DRM_MODE
+Bool qxl_pre_init_kms(ScrnInfoPtr pScrn, int flags);
+Bool qxl_kms_check_cap(qxl_screen_t *qxl, int cap);
+uint32_t qxl_kms_bo_get_handle(struct qxl_bo *_bo);
+#else
+static inline Bool qxl_pre_init_kms(ScrnInfoPtr pScrn, int flags) { return FALSE; }
+static inline Bool qxl_kms_check_cap(qxl_screen_t *qxl, int cap) { return FALSE; }
+#endif
 
 #ifdef XSPICE
 /* device to spice-server, now xspice to spice-server */

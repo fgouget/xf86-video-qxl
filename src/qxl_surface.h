@@ -46,6 +46,7 @@ struct qxl_surface_t
 	    struct qxl_surface_t	*dest;
 	} composite;
     } u;
+    struct qxl_bo *image_bo;
 };
 
 void qxl_download_box (qxl_surface_t *surface, int x1, int y1, int x2, int y2);

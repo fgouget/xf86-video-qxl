@@ -27,7 +27,7 @@
 
 SUBDIRS=uxa
 
-AM_CFLAGS = $(SPICE_PROTOCOL_CFLAGS) $(XORG_CFLAGS) $(PCIACCESS_CFLAGS) $(CWARNFLAGS)
+AM_CFLAGS = $(SPICE_PROTOCOL_CFLAGS) $(XORG_CFLAGS) $(PCIACCESS_CFLAGS) $(CWARNFLAGS) $(DRM_CFLAGS)
 
 if BUILD_QXL
 qxl_drv_la_LTLIBRARIES = qxl_drv.la
@@ -57,6 +57,9 @@ qxl_drv_la_SOURCES =				\
 	qxl_ums_mode.c                  \
 	qxl_io.c                        \
 	dfps.c				\
+	qxl_kms.c			\
+	qxl_drmmode.c			\
+	qxl_drmmode.h			\
 	compat-api.h 
 endif
 

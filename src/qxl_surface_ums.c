@@ -238,37 +238,6 @@ print_cache_info (surface_cache_t *cache)
     ErrorF ("    total: %d\n", n_surfaces);
 }
 
-static void
-get_formats (int bpp, SpiceBitmapFmt *format, pixman_format_code_t *pformat)
-{
-    switch (bpp)
-    {
-    case 8:
-	*format = SPICE_SURFACE_FMT_8_A;
-	*pformat = PIXMAN_a8;
-	break;
-
-    case 16:
-	*format = SPICE_SURFACE_FMT_16_565;
-	*pformat = PIXMAN_r5g6b5;
-	break;
-
-    case 24:
-	*format = SPICE_SURFACE_FMT_32_xRGB;
-	*pformat = PIXMAN_a8r8g8b8;
-	break;
-	
-    case 32:
-	*format = SPICE_SURFACE_FMT_32_ARGB;
-	*pformat = PIXMAN_a8r8g8b8;
-	break;
-
-    default:
-	*format = *pformat = -1;
-	break;
-    }
-}
-
 static qxl_surface_t *
 surface_get_from_cache (surface_cache_t *cache, int width, int height, int bpp)
 {
@@ -346,7 +315,7 @@ qxl_surface_cache_create_primary (qxl_screen_t *qxl,
 
     dev_addr = qxl->bo_funcs->bo_map(bo);
     dev_image = pixman_image_create_bits (format, mode->x_res, mode->y_res,
-					  (uint32_t *)dev_addr, -mode->stride);
+					  (uint32_t *)dev_addr, (qxl->kms_enabled ? mode->stride : -mode->stride));
 
     host_image = pixman_image_create_bits (format, 
 					   qxl->virtual_x, qxl->virtual_y,
@@ -372,6 +341,7 @@ qxl_surface_cache_create_primary (qxl_screen_t *qxl,
     surface->prev = NULL;
     surface->evacuated = NULL;
     surface->bo = bo;
+    surface->image_bo = NULL;
     
     REGION_INIT (NULL, &(surface->access_region), (BoxPtr)NULL, 0);
     surface->access_type = UXA_ACCESS_RO;
@@ -470,7 +440,7 @@ surface_send_create (surface_cache_t *cache,
     qxl_surface_t *surface;
     struct qxl_bo *bo, *cmd_bo;
     void *dev_ptr;
-    get_formats (bpp, &format, &pformat);
+    qxl_get_formats (bpp, &format, &pformat);
     
     width = align (width);
     height = align (height);

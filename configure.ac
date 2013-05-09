@@ -62,6 +62,7 @@ XORG_DRIVER_CHECK_EXT(XFreeXDGA, xf86dgaproto)
 # Obtain compiler/linker options for the driver dependencies
 PKG_CHECK_MODULES(XORG, [xorg-server >= 1.0.99.901] xproto fontsproto $REQUIRED_MODULES)
 
+
 save_CFLAGS="$CFLAGS"
 CFLAGS="$XORG_CFLAGS"
 AC_CHECK_DECL(XSERVER_LIBPCIACCESS,
@@ -69,12 +70,31 @@ AC_CHECK_DECL(XSERVER_LIBPCIACCESS,
 	      [#include "xorg-server.h"])
 CFLAGS="$save_CFLAGS"
 
+# Checks for libraries.
+PKG_CHECK_MODULES(DRM, [libdrm >= 2.4.42])
+
+AC_ARG_ENABLE(kms,
+	      AS_HELP_STRING([--disable-kms],
+	                     [Disable KMS support [[default=enabled]]]),		     [DRM_MODE="$enableval"],
+	     [DRM_MODE=yes])
+
 if test "x$XSERVER_LIBPCIACCESS" = xyes; then
     PKG_CHECK_MODULES([PCIACCESS], [pciaccess >= 0.10])
 fi
 AM_CONDITIONAL(XSERVER_LIBPCIACCESS, test "x$XSERVER_LIBPCIACCESS" = xyes)
-
-# Checks for libraries.
+save_CFLAGS="$CFLAGS"
+CFLAGS="$DRM_CFLAGS $CFLAGS"
+if test "x$DRM_MODE" = xyes; then
+   	AC_CHECK_HEADER(xf86drmMode.h,[DRM_MODE=yes],[DRM_MODE=no],[#include <stdint.h>
+#include <stdlib.h>])
+	if test "x$DRM_MODE" = xyes; then
+	   	AC_DEFINE(XF86DRM_MODE,1,[DRM kernel modesetting])
+        else
+                DRM_MODE=no
+        fi
+fi
+CFLAGS="$save_CFLAGS"
+AM_CONDITIONAL(DRM_MODE, test x$DRM_MODE = xyes)
 
 enable_qxl=yes
 AC_ARG_ENABLE(xspice,
@@ -134,6 +154,8 @@ echo "
         prefix:                   ${prefix}
         c compiler:               ${CC}
 
+        drm:                      ${DRM_CFLAGS}
+        KMS:                      ${DRM_MODE}
         Build qxl:                ${enable_qxl}
         Build xspice:             ${enable_xspice}
 "

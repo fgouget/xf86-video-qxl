@@ -465,8 +465,8 @@ qxl_close_screen (CLOSE_SCREEN_ARGS_DECL)
     return result;
 }
 
-static void
-set_screen_pixmap_header (ScreenPtr pScreen)
+void
+qxl_set_screen_pixmap_header (ScreenPtr pScreen)
 {
     ScrnInfoPtr pScrn = xf86ScreenToScrn (pScreen);
     qxl_screen_t *qxl = pScrn->driverPrivate;
@@ -504,7 +504,7 @@ qxl_create_primary(qxl_screen_t *qxl)
     return qxl_surface_cache_create_primary (qxl, &qxl->primary_mode);
 }
 
-static Bool
+Bool
 qxl_resize_primary_to_virtual (qxl_screen_t *qxl)
 {
     ScreenPtr pScreen;
@@ -518,16 +518,18 @@ qxl_resize_primary_to_virtual (qxl_screen_t *qxl)
     }
     
     ErrorF ("resizing primary to %dx%d\n", qxl->virtual_x, qxl->virtual_y);
+
+    if (!qxl->kms_enabled) {
+	new_surface0_size =
+	    qxl->virtual_x * qxl->pScrn->bitsPerPixel / 8 * qxl->virtual_y;
     
-    new_surface0_size =
-        qxl->virtual_x * qxl->pScrn->bitsPerPixel / 8 * qxl->virtual_y;
-    
-    if (new_surface0_size > qxl->surface0_size)
-    {
-	if (!qxl_resize_surface0 (qxl, new_surface0_size))
+	if (new_surface0_size > qxl->surface0_size)
 	{
-	    ErrorF ("not resizing primary to virtual, leaving old virtual\n");
-	    return FALSE;
+	    if (!qxl_resize_surface0 (qxl, new_surface0_size))
+	    {
+		ErrorF ("not resizing primary to virtual, leaving old virtual\n");
+		return FALSE;
+	    }
 	}
     }
     
@@ -556,7 +558,7 @@ qxl_resize_primary_to_virtual (qxl_screen_t *qxl)
             set_surface (root, qxl->primary);
         }
 
-        set_screen_pixmap_header (pScreen);
+        qxl_set_screen_pixmap_header (pScreen);
     }
     
     ErrorF ("primary is %p\n", qxl->primary);
@@ -609,7 +611,7 @@ qxl_create_screen_resources (ScreenPtr pScreen)
 
     if (qxl->deferred_fps <= 0)
     {
-        set_screen_pixmap_header (pScreen);
+        qxl_set_screen_pixmap_header (pScreen);
 
         if ((surf = get_surface (pPixmap)))
             qxl_surface_kill (surf);
@@ -657,7 +659,7 @@ spiceqxl_screen_init (ScrnInfoPtr pScrn, qxl_screen_t *qxl)
 
 #endif
 
-static Bool
+Bool
 qxl_fb_init (qxl_screen_t *qxl, ScreenPtr pScreen)
 {
     ScrnInfoPtr pScrn = qxl->pScrn;
@@ -959,7 +961,7 @@ qxl_check_device (ScrnInfoPtr pScrn, qxl_screen_t *qxl)
 
 #endif /* !XSPICE */
 
-static Bool
+Bool
 qxl_pre_init_common(ScrnInfoPtr pScrn)
 {
     int           scrnIndex = pScrn->scrnIndex;
@@ -1040,7 +1042,7 @@ qxl_pre_init (ScrnInfoPtr pScrn, int flags)
     qxl->pScrn = pScrn;
     qxl->x_modes = NULL;
     qxl->entity = xf86GetEntityInfo (pScrn->entityList[0]);
-
+    qxl->kms_enabled = FALSE;
     xorg_list_init(&qxl->ums_bos);
 
 #ifndef XSPICE
@@ -1205,18 +1207,61 @@ qxl_identify (int flags)
 }
 
 static void
-qxl_init_scrn (ScrnInfoPtr pScrn)
+qxl_init_scrn (ScrnInfoPtr pScrn, Bool kms)
 {
     pScrn->driverVersion    = 0;
     pScrn->driverName       = driver_name;
     pScrn->name             = driver_name;
-    pScrn->PreInit          = qxl_pre_init;
-    pScrn->ScreenInit       = qxl_screen_init;
-    pScrn->SwitchMode       = qxl_switch_mode;
-    pScrn->ValidMode        = NULL,
+
+    if (kms) {
+	pScrn->PreInit          = qxl_pre_init_kms;
+	pScrn->ScreenInit       = qxl_screen_init_kms;
+	pScrn->EnterVT          = qxl_enter_vt_kms;
+	pScrn->LeaveVT          = qxl_leave_vt_kms;
+    } else {
+	pScrn->PreInit          = qxl_pre_init;
+	pScrn->ScreenInit       = qxl_screen_init;
 	pScrn->EnterVT          = qxl_enter_vt;
-    pScrn->LeaveVT          = qxl_leave_vt;
+	pScrn->LeaveVT          = qxl_leave_vt;
+    }
+    pScrn->SwitchMode       = qxl_switch_mode;
+    pScrn->ValidMode        = NULL;
 }
+
+#ifdef XF86DRM_MODE
+static char *
+CreatePCIBusID(const struct pci_device *dev)
+{
+    char *busID;
+
+    if (asprintf(&busID, "pci:%04x:%02x:%02x.%d",
+                 dev->domain, dev->bus, dev->dev, dev->func) == -1)
+        return NULL;
+
+    return busID;
+}
+
+static Bool qxl_kernel_mode_enabled(ScrnInfoPtr pScrn, struct pci_device *pci_dev)
+{
+    char *busIdString;
+    int ret;
+
+    busIdString = CreatePCIBusID(pci_dev);
+    ret = drmCheckModesettingSupported(busIdString);
+    free(busIdString);
+    if (ret) {
+      xf86DrvMsgVerb(pScrn->scrnIndex, X_INFO, 0,
+		   "[KMS] drm report modesetting isn't supported.\n");
+	return FALSE;
+    }
+
+    xf86DrvMsgVerb(pScrn->scrnIndex, X_INFO, 0,
+		   "[KMS] Kernel modesetting enabled.\n");
+    return TRUE;
+}
+#else
+#define radeon_kernel_mode_enabled(x, y) FALSE
+#endif
 
 #ifdef XSPICE
 static Bool
@@ -1231,7 +1276,7 @@ qxl_probe (struct _DriverRec *drv, int flags)
 	return TRUE;
     
     pScrn = xf86AllocateScreen (drv, flags);
-    qxl_init_scrn (pScrn);
+    qxl_init_scrn (pScrn, FALSE);
     
     xf86MatchDevice (driver_name, &device);
     entityIndex = xf86ClaimNoSlot (drv, 0, device[0], TRUE);
@@ -1289,7 +1334,7 @@ qxl_probe (DriverPtr drv, int flags)
 	ScrnInfoPtr pScrn = NULL;
 	if ((pScrn = xf86ConfigPciEntity (pScrn, 0, usedChips[i], qxlPciChips,
 	                                  0, 0, 0, 0, 0)))
-	    qxl_init_scrn (pScrn);
+	    qxl_init_scrn (pScrn, FALSE);
     }
     
     xfree (usedChips);
@@ -1304,16 +1349,23 @@ qxl_pci_probe (DriverPtr drv, int entity, struct pci_device *dev, intptr_t match
     qxl_screen_t *qxl;
     ScrnInfoPtr   pScrn = xf86ConfigPciEntity (NULL, 0, entity, NULL, NULL,
                                                NULL, NULL, NULL, NULL);
+    Bool kms = FALSE;
     
     if (!pScrn)
 	return FALSE;
-    
+
+    if (dev) {
+	if (qxl_kernel_mode_enabled(pScrn, dev)) {    
+	    kms = TRUE;
+	}
+    }
+
     if (!pScrn->driverPrivate)
 	pScrn->driverPrivate = xnfcalloc (sizeof (qxl_screen_t), 1);
     qxl = pScrn->driverPrivate;
     qxl->pci = dev;
     
-    qxl_init_scrn (pScrn);
+    qxl_init_scrn (pScrn, kms);
     
     return TRUE;
 }

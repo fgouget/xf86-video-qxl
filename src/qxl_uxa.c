@@ -219,6 +219,16 @@ can_accelerate_picture (qxl_screen_t *qxl, PicturePtr pict)
 static Bool
 qxl_has_composite (qxl_screen_t *qxl)
 {
+#ifdef XF86DRM_MODE
+    if (qxl->kms_enabled) {
+	static Bool result, checked;
+	if (!checked) {
+	    result = qxl_kms_check_cap(qxl, SPICE_DISPLAY_CAP_COMPOSITE);
+	    checked = TRUE;
+	}
+	return result;
+    }
+#endif
 #ifndef XSPICE
     return
 	qxl->pci->revision >= 4			&&
@@ -232,6 +242,16 @@ qxl_has_composite (qxl_screen_t *qxl)
 static Bool
 qxl_has_a8_surfaces (qxl_screen_t *qxl)
 {
+#ifdef XF86DRM_MODE
+    if (qxl->kms_enabled) {
+        static Bool result, checked;
+	if (!checked) {
+            result = qxl_kms_check_cap(qxl, SPICE_DISPLAY_CAP_A8_SURFACE);
+	    checked = TRUE;
+	}
+	return result;
+    }
+#endif
 #ifndef XSPICE
     if (qxl->pci->revision < 4)
     {

@@ -84,7 +84,8 @@ make_drawable (qxl_screen_t *qxl, qxl_surface_t *surf, uint8_t type,
     if (rect)
 	drawable->bbox = *rect;
     
-    drawable->mm_time = qxl->rom->mm_clock;
+    if (!qxl->kms_enabled)
+        drawable->mm_time = qxl->rom->mm_clock;
 
     qxl->bo_funcs->bo_unmap(draw_bo);
     return draw_bo;
@@ -454,6 +455,35 @@ qxl_surface_prepare_copy (qxl_surface_t *dest,
     return TRUE;
 }
 
+
+static struct qxl_bo *
+image_from_surface_internal(qxl_screen_t *qxl,
+			    qxl_surface_t *surface)
+{
+    struct qxl_bo *image_bo = qxl->bo_funcs->bo_alloc (qxl, sizeof(struct QXLImage), "image struct for surface");
+    struct QXLImage *image = qxl->bo_funcs->bo_map(image_bo);
+
+    image->descriptor.id = 0;
+    image->descriptor.type = SPICE_IMAGE_TYPE_SURFACE;
+    image->descriptor.width = 0;
+    image->descriptor.height = 0;
+    qxl->bo_funcs->bo_unmap(image_bo);
+    return image_bo;
+}
+
+struct qxl_bo *image_from_surface(qxl_screen_t *qxl, qxl_surface_t *dest)
+{
+    struct QXLImage *image_bo;
+
+    if (!dest->image_bo)
+      dest->image_bo = image_from_surface_internal(qxl, dest);
+
+    qxl->bo_funcs->bo_incref(qxl, dest->image_bo);
+    qxl->bo_funcs->bo_output_surf_reloc(qxl, offsetof(struct QXLImage, surface_image.surface_id), dest->image_bo, dest);
+
+    return dest->image_bo;
+}
+
 void
 qxl_surface_copy (qxl_surface_t *dest,
 		  int  src_x1, int src_y1,
@@ -493,14 +523,8 @@ qxl_surface_copy (qxl_surface_t *dest,
 	struct QXLImage *image;
 
 	dest->u.copy_src->ref_count++;
-	image_bo = qxl->bo_funcs->bo_alloc (qxl, sizeof(struct QXLImage), "image struct for surface");
-	image = qxl->bo_funcs->bo_map(image_bo);
-	image->descriptor.id = 0;
-	image->descriptor.type = SPICE_IMAGE_TYPE_SURFACE;
-	image->descriptor.width = 0;
-	image->descriptor.height = 0;
-	image->surface_image.surface_id = dest->u.copy_src->id;
-	qxl->bo_funcs->bo_unmap(image_bo);
+
+	image_bo = image_from_surface(qxl, dest->u.copy_src);
 
 	drawable_bo = make_drawable (qxl, dest, QXL_DRAW_COPY, &qrect);
 
@@ -566,22 +590,14 @@ image_from_picture (qxl_screen_t *qxl,
 		    qxl_surface_t *surface,
 		    int *force_opaque)
 {
-    struct qxl_bo *image_bo = qxl->bo_funcs->bo_alloc (qxl, sizeof(struct QXLImage), "image struct for surface");
-    struct QXLImage *image = qxl->bo_funcs->bo_map(image_bo);
+    struct qxl_bo *image_bo;
 
-    image->descriptor.id = 0;
-    image->descriptor.type = SPICE_IMAGE_TYPE_SURFACE;
-    image->descriptor.width = 0;
-    image->descriptor.height = 0;
-    image->surface_image.surface_id = surface->id;
-
-    qxl->bo_funcs->bo_unmap(image_bo);
     if (picture->format == PICT_x8r8g8b8)
 	*force_opaque = TRUE;
     else
 	*force_opaque = FALSE;
-    
-    return image_bo;
+
+    return image_from_surface(qxl, surface);
 }
 
 static struct qxl_bo *
@@ -790,4 +806,35 @@ qxl_surface_put_image (qxl_surface_t *dest,
     push_drawable (qxl, drawable_bo);
     qxl->bo_funcs->bo_decref(qxl, image_bo);    
     return TRUE;
+}
+
+void
+qxl_get_formats (int bpp, SpiceBitmapFmt *format, pixman_format_code_t *pformat)
+{
+    switch (bpp)
+    {
+    case 8:
+	*format = SPICE_SURFACE_FMT_8_A;
+	*pformat = PIXMAN_a8;
+	break;
+
+    case 16:
+	*format = SPICE_SURFACE_FMT_16_565;
+	*pformat = PIXMAN_r5g6b5;
+	break;
+
+    case 24:
+	*format = SPICE_SURFACE_FMT_32_xRGB;
+	*pformat = PIXMAN_a8r8g8b8;
+	break;
+	
+    case 32:
+	*format = SPICE_SURFACE_FMT_32_ARGB;
+	*pformat = PIXMAN_a8r8g8b8;
+	break;
+
+    default:
+	*format = *pformat = -1;
+	break;
+    }
 }
