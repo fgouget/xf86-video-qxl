@@ -824,6 +824,10 @@ drmmode_xf86crtc_resize (ScrnInfoPtr scrn, int width, int height)
 								    height,
 								    (uint32_t *)dev_addr, pitch);
 
+		qxl->primary->host_image = pixman_image_create_bits (format,
+								    width,
+								    height,
+								    NULL, pitch);
 	}
 		
 	/* fixup the surfaces */
