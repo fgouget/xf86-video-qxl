@@ -70,13 +70,22 @@ AC_CHECK_DECL(XSERVER_LIBPCIACCESS,
 	      [#include "xorg-server.h"])
 CFLAGS="$save_CFLAGS"
 
-# Checks for libraries.
-PKG_CHECK_MODULES(DRM, [libdrm >= 2.4.42])
+save_CFLAGS="$CFLAGS"
+CFLAGS="$XORG_CFLAGS"
+AC_CHECK_HEADER(qxl_drm.h,[QXL_DRM=yes],[QXL_DRM=no],[#include <stdint.h>])
+CFLAGS="$save_CFLAGS"
 
-AC_ARG_ENABLE(kms,
-	      AS_HELP_STRING([--disable-kms],
-	                     [Disable KMS support [[default=enabled]]]),		     [DRM_MODE="$enableval"],
-	     [DRM_MODE=yes])
+# Checks for libraries.
+if test "x$QXL_DRM" = xyes; then
+	PKG_CHECK_MODULES(DRM, [libdrm >= 2.4.42])
+
+	AC_ARG_ENABLE(kms,
+		      AS_HELP_STRING([--disable-kms],
+		                     [Disable KMS support [[default=enabled]]]),		     [DRM_MODE="$enableval"],
+		     [DRM_MODE=yes])
+else
+	DRM_MODE=no
+fi
 
 if test "x$XSERVER_LIBPCIACCESS" = xyes; then
     PKG_CHECK_MODULES([PCIACCESS], [pciaccess >= 0.10])
