@@ -338,7 +338,7 @@ struct qxl_kms_bo {
     const char *name;
     uint32_t size;
     int type;
-    struct xorg_list bos;
+    xorg_list_t bos;
     void *mapping;
     qxl_screen_t *qxl;
     int refcnt;

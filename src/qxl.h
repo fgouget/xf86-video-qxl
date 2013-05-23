@@ -56,6 +56,16 @@
 
 #include "qxl_drmmode.h"
 
+#if (XORG_VERSION_CURRENT < XORG_VERSION_NUMERIC(1, 11, 99, 903, 0))
+typedef struct list xorg_list_t;
+#define xorg_list_init              list_init
+#define xorg_list_add               list_add
+#define xorg_list_del               list_del
+#define xorg_list_for_each_entry    list_for_each_entry
+#else
+typedef struct xorg_list xorg_list_t;
+#endif
+
 #include "compat-api.h"
 #define hidden _X_HIDDEN
 
@@ -332,7 +342,7 @@ struct _qxl_screen_t
 #endif /* XSPICE */
 
     uint32_t deferred_fps;
-    struct xorg_list ums_bos;
+    xorg_list_t ums_bos;
     struct qxl_bo_funcs *bo_funcs;
 
     Bool kms_enabled;

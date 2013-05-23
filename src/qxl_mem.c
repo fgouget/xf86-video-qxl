@@ -448,7 +448,7 @@ struct qxl_ums_bo {
     void *internal_virt_addr;
     int refcnt;
     qxl_screen_t *qxl;
-    struct xorg_list bos;
+    xorg_list_t bos;
 };
 
 static struct qxl_bo *qxl_bo_alloc_internal(qxl_screen_t *qxl, int type, int flags, unsigned long size, const char *name)
