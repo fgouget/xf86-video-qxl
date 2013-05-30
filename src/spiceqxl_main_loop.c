@@ -299,7 +299,7 @@ static void select_and_check_watches(void)
     if (retval) {
         RING_FOREACH_SAFE(link, next, &watches) {
             watch = (SpiceWatch*)link;
-            if ((watch->event_mask & SPICE_WATCH_EVENT_READ)
+            if (!watch->remove && (watch->event_mask & SPICE_WATCH_EVENT_READ)
                  && FD_ISSET(watch->fd, &rfds)) {
                 watch->func(watch->fd, SPICE_WATCH_EVENT_READ, watch->opaque);
             }
