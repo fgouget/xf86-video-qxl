@@ -814,8 +814,7 @@ drmmode_xf86crtc_resize (ScrnInfoPtr scrn, int width, int height)
 		void *dev_ptr = qxl->bo_funcs->bo_map(qxl->primary->bo);
 		uint32_t *dev_addr;
 		int format = scrn->bitsPerPixel == 16 ? PIXMAN_x1r5g5b5 : PIXMAN_x8r8g8b8;
-		dev_addr
-			= (uint32_t *)((uint8_t *)dev_ptr + pitch * (height - 1));
+		dev_addr = dev_ptr;
 		pixman_image_unref(qxl->primary->dev_image);
 		pixman_image_unref (qxl->primary->host_image);
 
