@@ -95,6 +95,7 @@ qxl_close_screen_kms (CLOSE_SCREEN_ARGS_DECL)
     qxl_screen_t *qxl = pScrn->driverPrivate;
     Bool result;
 
+    qxl_drmmode_uevent_fini(pScrn, &qxl->drmmode);
     pScreen->CloseScreen = qxl->close_screen;
 
     result = pScreen->CloseScreen (CLOSE_SCREEN_ARGS);
@@ -197,6 +198,8 @@ qxl_create_screen_resources_kms(ScreenPtr pScreen)
         qxl->bo_funcs->destroy_surface(surf);
     
     set_surface (pPixmap, qxl->primary);
+
+    qxl_drmmode_uevent_init(pScrn, &qxl->drmmode);
 
     if (!uxa_resources_init (pScreen))
 	return FALSE;

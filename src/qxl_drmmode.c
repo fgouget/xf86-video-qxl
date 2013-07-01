@@ -875,4 +875,66 @@ Bool drmmode_pre_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, int cpp)
 	return TRUE;
 }
 
+#ifdef HAVE_LIBUDEV
+static void
+drmmode_handle_uevents(int fd, void *closure)
+{
+	drmmode_ptr drmmode = closure;
+	ScrnInfoPtr scrn = drmmode->scrn;
+	struct udev_device *dev;
+	dev = udev_monitor_receive_device(drmmode->uevent_monitor);
+	if (!dev)
+		return;
+
+	RRGetInfo(xf86ScrnToScreen(scrn), TRUE);
+	udev_device_unref(dev);
+}
+#endif
+
+void qxl_drmmode_uevent_init(ScrnInfoPtr scrn, drmmode_ptr drmmode)
+{
+#ifdef HAVE_LIBUDEV
+	struct udev *u;
+	struct udev_monitor *mon;
+
+	u = udev_new();
+	if (!u)
+		return;
+	mon = udev_monitor_new_from_netlink(u, "udev");
+	if (!mon) {
+		udev_unref(u);
+		return;
+	}
+
+	if (udev_monitor_filter_add_match_subsystem_devtype(mon,
+							    "drm",
+							    "drm_minor") < 0 ||
+	    udev_monitor_enable_receiving(mon) < 0) {
+		udev_monitor_unref(mon);
+		udev_unref(u);
+		return;
+	}
+
+	drmmode->uevent_handler =
+		xf86AddGeneralHandler(udev_monitor_get_fd(mon),
+				      drmmode_handle_uevents,
+				      drmmode);
+
+	drmmode->uevent_monitor = mon;
+#endif
+}
+
+void qxl_drmmode_uevent_fini(ScrnInfoPtr scrn, drmmode_ptr drmmode)
+{
+#ifdef HAVE_LIBUDEV
+	if (drmmode->uevent_handler) {
+		struct udev *u = udev_monitor_get_udev(drmmode->uevent_monitor);
+		xf86RemoveGeneralHandler(drmmode->uevent_handler);
+
+		udev_monitor_unref(drmmode->uevent_monitor);
+		udev_unref(u);
+	}
+#endif
+}
+
 #endif

@@ -27,7 +27,7 @@
 
 SUBDIRS=uxa
 
-AM_CFLAGS = $(SPICE_PROTOCOL_CFLAGS) $(XORG_CFLAGS) $(PCIACCESS_CFLAGS) $(CWARNFLAGS) $(DRM_CFLAGS)
+AM_CFLAGS = $(SPICE_PROTOCOL_CFLAGS) $(XORG_CFLAGS) $(PCIACCESS_CFLAGS) $(CWARNFLAGS) $(DRM_CFLAGS) @LIBUDEV_CFLAGS@
 
 if BUILD_QXL
 qxl_drv_la_LTLIBRARIES = qxl_drv.la
@@ -35,6 +35,10 @@ qxl_drv_la_LDFLAGS = -module -avoid-version
 qxl_drv_ladir = @moduledir@/drivers
 
 qxl_drv_la_LIBADD = uxa/libuxa.la
+if LIBUDEV
+qxl_drv_la_LIBADD += $(LIBUDEV_LIBS)
+endif
+
 
 qxl_drv_la_SOURCES =				\
 	qxl.h					\

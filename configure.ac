@@ -135,6 +135,20 @@ fi
 AM_CONDITIONAL(BUILD_XSPICE, test "x$enable_xspice" = "xyes")
 AM_CONDITIONAL(BUILD_QXL, test "x$enable_qxl" = "xyes")
 
+AC_ARG_ENABLE([udev],
+		AS_HELP_STRING([--disable-udev], [Disable libudev support [default=auto]]),
+		[enable_udev="$enableval"],
+		[enable_udev=auto])
+if test "x$enable_udev" != "xno"; then
+	PKG_CHECK_MODULES(LIBUDEV, [libudev], [LIBUDEV=yes], [LIBUDEV=no])
+	if test "x$LIBUDEV" = xyes; then
+		AC_DEFINE(HAVE_LIBUDEV, 1,[libudev support])
+	elif test "x$enable_udev" != "xauto"; then
+		AC_MSG_ERROR([Building with udev requested but libudev not found])
+	fi
+fi
+AM_CONDITIONAL(LIBUDEV, test x$LIBUDEV = xyes)
+
 PKG_CHECK_MODULES([SPICE_PROTOCOL], [spice-protocol >= 0.12.0])
 
 # AC_CHECK_FILE is not supported when cross compiling

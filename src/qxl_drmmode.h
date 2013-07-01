@@ -34,6 +34,9 @@
 #include "xf86str.h"
 #include "randrstr.h"
 #include "xf86Crtc.h"
+#ifdef HAVE_LIBUDEV
+#include "libudev.h"
+#endif
 
 typedef struct {
   int fd;
@@ -42,6 +45,10 @@ typedef struct {
   drmModeFBPtr mode_fb;
   int cpp;
   ScrnInfoPtr scrn;
+#ifdef HAVE_LIBUDEV
+  struct udev_monitor *uevent_monitor;
+  InputHandlerProc uevent_handler;
+#endif
 } drmmode_rec, *drmmode_ptr;
 
 typedef struct {
@@ -78,6 +85,9 @@ typedef struct {
 } drmmode_output_private_rec, *drmmode_output_private_ptr;
 
 extern Bool drmmode_pre_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, int cpp);
+
+extern void qxl_drmmode_uevent_init(ScrnInfoPtr scrn, drmmode_ptr drmmode);
+extern void qxl_drmmode_uevent_fini(ScrnInfoPtr scrn, drmmode_ptr drmmode);
 #endif
 
 #endif
