@@ -78,7 +78,8 @@ CFLAGS="$save_CFLAGS"
 
 # Checks for libraries.
 if test "x$QXL_DRM" = xyes; then
-	PKG_CHECK_MODULES(DRM, [libdrm >= 2.4.42])
+	# require support for kms cursor hotspot
+	PKG_CHECK_MODULES(DRM, [libdrm >= 2.4.46])
 
 	AC_ARG_ENABLE(kms,
 		      AS_HELP_STRING([--disable-kms],
