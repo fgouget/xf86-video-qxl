@@ -587,11 +587,6 @@ void qxl_io_destroy_all_surfaces (qxl_screen_t *qxl);
 void qxl_io_flush_release (qxl_screen_t *qxl);
 #endif
 
-/*
- * qxl_edid.c
- */
-Bool qxl_output_edid_set(xf86OutputPtr output, int head, DisplayModePtr mode);
-
 Bool qxl_pre_init_common(ScrnInfoPtr pScrn);
 Bool qxl_fb_init (qxl_screen_t *qxl, ScreenPtr pScreen);
 Bool qxl_screen_init_kms(SCREEN_INIT_ARGS_DECL);

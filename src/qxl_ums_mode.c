@@ -173,8 +173,7 @@ crtc_set_mode_major (xf86CrtcPtr crtc, DisplayModePtr mode,
 #if XORG_VERSION_CURRENT >= XORG_VERSION_NUMERIC (1, 5, 99, 0, 0)
     crtc->transformPresent = FALSE;
 #endif
-    qxl_output_edid_set (crtc_private->output, crtc_private->head, mode);
-
+    /* TODO set EDID here */
     return TRUE;
 }
 
@@ -217,7 +216,7 @@ qxl_update_edid (qxl_screen_t *qxl)
 	if (!crtc->enabled)
 	    continue;
 
-	qxl_output_edid_set (qxl->outputs[i], i, &crtc->desiredMode);
+	/* TODO set EDID here */
     }
 }
 
