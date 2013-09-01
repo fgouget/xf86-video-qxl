@@ -29,6 +29,12 @@
 #include <errno.h>
 #include <time.h>
 #include "qxl.h"
+
+#ifdef XSPICE
+#include "spiceqxl_display.h"
+#endif
+
+
 #ifndef XSPICE
 static void
 qxl_wait_for_io_command (qxl_screen_t *qxl)
@@ -175,11 +181,10 @@ qxl_io_monitors_config_async (qxl_screen_t *qxl)
 #ifndef XSPICE
     if (qxl->pci->revision < 4)
 	return;
-
     ioport_write (qxl, QXL_IO_MONITORS_CONFIG_ASYNC, 0);
     qxl_wait_for_io_command (qxl);
 #else
-    fprintf (stderr, "UNIMPLEMENTED!\n");
+    spiceqxl_display_monitors_config(qxl);
 #endif
 }
 

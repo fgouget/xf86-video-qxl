@@ -307,6 +307,9 @@ static int interface_flush_resources(QXLInstance *sin)
     return ret;
 }
 
+static void interface_async_complete(QXLInstance *sin, uint64_t cookie_token)
+{
+}
 
 static const QXLInterface qxl_interface = {
     .base.type               = SPICE_INTERFACE_QXL,
@@ -327,6 +330,7 @@ static const QXLInterface qxl_interface = {
     .req_cursor_notification = interface_req_cursor_notification,
     .notify_update           = interface_notify_update,
     .flush_resources         = interface_flush_resources,
+    .async_complete          = interface_async_complete,
 };
 
 void qxl_add_spice_display_interface(qxl_screen_t *qxl)
@@ -341,4 +345,10 @@ void qxl_add_spice_display_interface(qxl_screen_t *qxl)
     qxl->display_sin.id = 0;
     qxl->display_sin.st = (struct QXLState*)qxl;
     spice_server_add_interface(qxl->spice_server, &qxl->display_sin.base);
+}
+
+void spiceqxl_display_monitors_config(qxl_screen_t *qxl)
+{
+    spice_qxl_monitors_config_async(&qxl->display_sin, (QXLPHYSICAL)qxl->monitors_config,
+                                    MEMSLOT_GROUP, 0);
 }

@@ -30,4 +30,6 @@ void qxl_add_spice_display_interface(qxl_screen_t *qxl);
 /* spice-server to device, now spice-server to xspice */
 void qxl_send_events(qxl_screen_t *qxl, int events);
 
+void spiceqxl_display_monitors_config(qxl_screen_t *qxl);
+
 #endif // QXL_SPICE_DISPLAY_H
