@@ -22,6 +22,7 @@ import sys
 import tempfile
 import atexit
 import time
+from subprocess import Popen
 
 def which(x):
     for p in os.environ['PATH'].split(':'):
@@ -124,13 +125,28 @@ def error(msg, exit_code=1):
 if not args.xorg:
     error("Xorg missing")
 
+cleanup_files = []
+cleanup_processes = []
+
 def cleanup():
-    if os.path.isfile(cf.name + ".log"):
-        os.remove(cf.name + ".log")
+    for f in cleanup_files:
+        if os.path.isfile(f):
+            os.remove(f)
+    for p in cleanup_processes:
+        p.kill()
+    for p in cleanup_processes:
+        p.wait()
+
+def launch(*args, **kw):
+    p = Popen(*args, **kw)
+    cleanup_processes.append(p)
+    return p
+
+atexit.register(cleanup)
 
 if args.auto:
-    atexit.register(cleanup)   
     cf = tempfile.NamedTemporaryFile(prefix="Xspice-", delete=True)
+    cleanup_files.append(cf.name + ".log")
     args.config = cf.name
     xorg_args = [ '-logfile', cf.name + ".log" ] + xorg_args
     cf.write("""
@@ -206,10 +222,10 @@ if cgdb and args.cgdb:
 # This is currently mandatory; the driver cannot survive a reset
 xorg_args = [ '-noreset' ] + xorg_args
 
-xpid = os.spawnv(os.P_NOWAIT, args.xorg, exec_args + xorg_args)
+xorg = launch(executable=args.xorg, args=exec_args + xorg_args)
 time.sleep(2)
 
-retpid,rc = os.waitpid(xpid, os.WNOHANG)
+retpid,rc = os.waitpid(xorg.pid, os.WNOHANG)
 if retpid != 0:
     print "Error: X server is not running"
 else:
@@ -219,7 +235,7 @@ else:
         os.spawnlpe(os.P_NOWAIT, args.xsession, environ)
 
     try:
-        os.waitpid(xpid, 0)
+        xorg.wait()
     except KeyboardInterrupt:
         # Catch Ctrl-C as that is the common way of ending this script
         print "Keyboard Interrupt"
