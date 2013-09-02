@@ -12,7 +12,7 @@ Xspice is kept in the same repository. It can also be used to debug the qxl
 driver.
 
 Xspice (this executable) will set a bunch of environment variables that are
-used by spiceqxl_drv.so, and then exec Xorg, giving it the default config file,
+used by spiceqxl_drv.so, and then spawn Xorg, giving it the default config file,
 which can be overridden as well.
 """
 
