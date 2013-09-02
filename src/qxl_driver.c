@@ -177,13 +177,13 @@ unmap_memory_helper (qxl_screen_t *qxl)
 static void
 map_memory_helper (qxl_screen_t *qxl)
 {
-    qxl->ram = malloc (RAM_SIZE);
+    qxl->ram = calloc (RAM_SIZE, 1);
     qxl->ram_size = RAM_SIZE;
     qxl->ram_physical = qxl->ram;
-    qxl->vram = malloc (VRAM_SIZE);
+    qxl->vram = calloc (VRAM_SIZE, 1);
     qxl->vram_size = VRAM_SIZE;
     qxl->vram_physical = qxl->vram;
-    qxl->rom = malloc (ROM_SIZE);
+    qxl->rom = calloc (ROM_SIZE, 1);
     
     init_qxl_rom (qxl, ROM_SIZE);
 }
