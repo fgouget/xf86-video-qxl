@@ -1,6 +1,8 @@
 #ifndef OPTION_HELPERS_H
 #define OPTION_HELPERS_H
 
+#include <xf86Crtc.h>
+#include <xf86Opt.h>
 
 int get_int_option(OptionInfoPtr options, int option_index,
                    const char *env_name);
