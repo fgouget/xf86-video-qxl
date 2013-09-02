@@ -55,6 +55,7 @@
 #include "spiceqxl_io_port.h"
 #include "spiceqxl_spice_server.h"
 #include "spiceqxl_audio.h"
+#include "spiceqxl_vdagent.h"
 #endif /* XSPICE */
 
 #include "dfps.h"
@@ -67,6 +68,7 @@ extern void compat_init_scrn (ScrnInfoPtr);
 static char filter_str[] = "filter";
 static char auto_str[]   = "auto";
 static char auto_glz_str[]   = "auto_glz";
+static char spice_vdagent_virtio_path_default[] = "/tmp/xspice-virtio";
 #endif
 static char driver_name[] = QXL_DRIVER_NAME;
 const OptionInfoRec DefaultOptions[] =
@@ -133,6 +135,10 @@ const OptionInfoRec DefaultOptions[] =
       "SpiceExitOnDisconnect",    OPTV_BOOLEAN,   {0}, FALSE},
     { OPTION_SPICE_PLAYBACK_FIFO_DIR,
       "SpicePlaybackFIFODir",     OPTV_STRING,    {0}, FALSE},
+    { OPTION_SPICE_VDAGENT_ENABLED,
+      "SpiceVdagentEnabled",      OPTV_BOOLEAN,   {0}, FALSE},
+    { OPTION_SPICE_VDAGENT_VIRTIO_PATH,
+      "SpiceVdagentVirtioPath",   OPTV_STRING,    {.str = spice_vdagent_virtio_path_default}, FALSE},
 #endif
     
     { -1, NULL, OPTV_NONE, {0}, FALSE }
@@ -639,6 +645,7 @@ spiceqxl_screen_init (ScrnInfoPtr pScrn, qxl_screen_t *qxl)
 	spice_server_init (qxl->spice_server, qxl->core);
 	qxl_add_spice_display_interface (qxl);
 	qxl_add_spice_playback_interface (qxl);
+	spiceqxl_vdagent_init (qxl);
     }
     else
     {
