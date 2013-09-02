@@ -69,6 +69,7 @@ static char filter_str[] = "filter";
 static char auto_str[]   = "auto";
 static char auto_glz_str[]   = "auto_glz";
 static char spice_vdagent_virtio_path_default[] = "/tmp/xspice-virtio";
+static char spice_vdagent_uinput_path_default[] = "/tmp/xspice-uinput";
 #endif
 static char driver_name[] = QXL_DRIVER_NAME;
 const OptionInfoRec DefaultOptions[] =
@@ -139,6 +140,8 @@ const OptionInfoRec DefaultOptions[] =
       "SpiceVdagentEnabled",      OPTV_BOOLEAN,   {0}, FALSE},
     { OPTION_SPICE_VDAGENT_VIRTIO_PATH,
       "SpiceVdagentVirtioPath",   OPTV_STRING,    {.str = spice_vdagent_virtio_path_default}, FALSE},
+    { OPTION_SPICE_VDAGENT_UINPUT_PATH,
+      "SpiceVdagentUinputPath",   OPTV_STRING,    {.str = spice_vdagent_uinput_path_default}, FALSE},
 #endif
     
     { -1, NULL, OPTV_NONE, {0}, FALSE }

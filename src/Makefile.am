@@ -91,6 +91,8 @@ spiceqxl_drv_la_SOURCES =				\
 	spiceqxl_display.h			\
 	spiceqxl_vdagent.c			\
 	spiceqxl_vdagent.h			\
+	spiceqxl_uinput.c			\
+	spiceqxl_uinput.h			\
 	spiceqxl_audio.c			\
 	spiceqxl_audio.h			\
 	spiceqxl_inputs.c			\

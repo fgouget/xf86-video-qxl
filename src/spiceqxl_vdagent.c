@@ -10,6 +10,7 @@
 
 #include "qxl_option_helpers.h"
 
+#include "spiceqxl_uinput.h"
 #include "spiceqxl_vdagent.h"
 
 static const char *vdagent_virtio_filename;
@@ -165,4 +166,5 @@ void spiceqxl_vdagent_init(qxl_screen_t *qxl)
 
     vdagent_sin.base.base.sif = &vmc_interface.base;
     spice_server_add_interface(qxl->spice_server, &vdagent_sin.base.base);
+    spiceqxl_uinput_init(qxl);
 }
