@@ -270,6 +270,8 @@ typedef struct XSpicePointer {
     InputInfoPtr     pInfo; /* xf86 device handle to post events */
 } XSpicePointer;
 
+static XSpicePointer *g_xspice_pointer;
+
 static void mouse_motion(SpiceMouseInstance *sin, int dx, int dy, int dz,
                          uint32_t buttons_state)
 {
@@ -304,22 +306,35 @@ static void tablet_set_logical_size(SpiceTabletInstance* sin, int width, int hei
     spice_pointer->height = height;
 }
 
+void spiceqxl_tablet_position(int x, int y, uint32_t buttons_state)
+{
+    // TODO: don't ignore buttons_state
+    xf86PostMotionEvent(g_xspice_pointer->pInfo->dev, 1, 0, 2, x, y);
+}
+
 static void tablet_position(SpiceTabletInstance* sin, int x, int y,
                             uint32_t buttons_state)
 {
-    XSpicePointer *spice_pointer = container_of(sin, XSpicePointer, tablet);
+    spiceqxl_tablet_position(x, y, buttons_state);
+}
 
-    // TODO: don't ignore buttons_state
-    xf86PostMotionEvent(spice_pointer->pInfo->dev, 1, 0, 2, x, y);
+void spiceqxl_tablet_buttons(uint32_t buttons_state)
+{
+    static uint32_t old_buttons_state = 0;
+    int i;
+
+    for (i = 0; i < BUTTONS; i++) {
+        if ((buttons_state ^ old_buttons_state) & (1 << i)) {
+            int action = (buttons_state & (1 << i));
+            xf86PostButtonEvent(g_xspice_pointer->pInfo->dev, 0, i + 1, action, 0, 0);
+        }
+    }
+    old_buttons_state = buttons_state;
 }
 
 static void tablet_buttons(SpiceTabletInstance *sin,
                            uint32_t buttons_state)
 {
-    XSpicePointer *spice_pointer = container_of(sin, XSpicePointer, tablet);
-    static uint32_t old_buttons_state = 0;
-    int i;
-
     // For some reason spice switches the second and third button, undo that.
     // basically undo RED_MOUSE_STATE_TO_LOCAL
     buttons_state = (buttons_state & SPICE_MOUSE_BUTTON_MASK_LEFT) |
@@ -327,14 +342,7 @@ static void tablet_buttons(SpiceTabletInstance *sin,
         ((buttons_state & SPICE_MOUSE_BUTTON_MASK_RIGHT) >> 1) |
         (buttons_state & ~(SPICE_MOUSE_BUTTON_MASK_LEFT | SPICE_MOUSE_BUTTON_MASK_MIDDLE
                           |SPICE_MOUSE_BUTTON_MASK_RIGHT));
-
-    for (i = 0; i < BUTTONS; i++) {
-        if ((buttons_state ^ old_buttons_state) & (1 << i)) {
-            int action = (buttons_state & (1 << i));
-            xf86PostButtonEvent(spice_pointer->pInfo->dev, 0, i + 1, action, 0, 0);
-        }
-    }
-    old_buttons_state = buttons_state;
+    spiceqxl_tablet_buttons(buttons_state);
 }
 
 static void tablet_wheel(SpiceTabletInstance* sin, int wheel,
@@ -358,6 +366,7 @@ static const SpiceTabletInterface tablet_interface = {
 };
 
 static char unknown_type_string[] = "UNKNOWN";
+
 static int
 XSpiceKeyboardPreInit(InputDriverPtr drv, InputInfoPtr pInfo, int flags)
 {
@@ -382,7 +391,7 @@ XSpicePointerPreInit(InputDriverPtr drv, InputInfoPtr pInfo, int flags)
 {
     XSpicePointer *spice_pointer;
 
-    spice_pointer = calloc(sizeof(*spice_pointer), 1);
+    g_xspice_pointer = spice_pointer = calloc(sizeof(*spice_pointer), 1);
     spice_pointer->mouse.base.sif  = &mouse_interface.base;
     spice_pointer->tablet.base.sif = &tablet_interface.base;
     spice_pointer->absolute = TRUE;

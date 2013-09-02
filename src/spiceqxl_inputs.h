@@ -26,5 +26,7 @@
 #include "qxl.h"
 
 void xspice_add_input_drivers(pointer module);
+void spiceqxl_tablet_buttons(uint32_t buttons_state);
+void spiceqxl_tablet_position(int x, int y, uint32_t buttons_state);
 
 #endif // QXL_SPICE_INPUTS_H
