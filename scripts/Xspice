@@ -213,6 +213,10 @@ display=""
 for arg in xorg_args:
     if arg.startswith(":"):
         display = arg
+if not display:
+    print "Error: missing display on line (i.e. :3)"
+    raise SystemExit
+os.environ ['DISPLAY'] = display
 
 exec_args = [args.xorg, '-config', args.config]
 if cgdb and args.cgdb:
@@ -231,7 +235,6 @@ if retpid != 0:
 else:
     if args.xsession:
         environ = os.environ
-        environ ['DISPLAY'] = display
         os.spawnlpe(os.P_NOWAIT, args.xsession, environ)
 
     try:
