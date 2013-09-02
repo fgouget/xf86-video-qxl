@@ -22,9 +22,11 @@ import sys
 import tempfile
 import atexit
 import time
-from subprocess import Popen
+from subprocess import Popen, PIPE
 
 def which(x):
+    if os.path.exists(x):
+        return x
     for p in os.environ['PATH'].split(':'):
         candidate = os.path.join(p, x)
         if os.path.exists(candidate):
@@ -82,6 +84,12 @@ parser.add_argument('--streaming-video', choices=['off', 'all', 'filter'],
                     default='filter', help='filter by default')
 add_boolean('--ipv4-only')
 add_boolean('--ipv6-only')
+parser.add_argument('--vdagent', action='store_true', dest='vdagent_enabled', default=False, help='launch vdagent & vdagentd')
+parser.add_argument('--vdagent-virtio-path', default='/tmp/xspice-virtio', help='virtio socket path')
+parser.add_argument('--vdagent-uinput-path', default='/tmp/xspice-uinput', help='uinput socket path')
+parser.add_argument('--vdagentd-exec', default='spice-vdagentd')
+parser.add_argument('--vdagent-exec', default='spice-vdagent')
+parser.add_argument('--vdagent-no-launch', default=True, action='store_false', dest='vdagent_launch')
 
 #TODO
 #Option "SpiceAddr" ""
@@ -97,6 +105,23 @@ if cgdb:
     parser.add_argument('--cgdb', action='store_true', default=False)
 
 args, xorg_args = parser.parse_known_args(sys.argv[1:])
+
+def agents_new_enough(args):
+    if not os.path.exists(args.vdagent_exec) or not os.path.exists(args.vdagentd_exec):
+        return False
+    for f in [args.vdagent_exec, args.vdagentd_exec]:
+        if Popen(args=[f, '-h'], stdout=PIPE).stdout.read().find('-S') == -1:
+            return False
+    return True
+
+if args.vdagent_enabled:
+    args.vdagent_exec = which(args.vdagent_exec)
+    args.vdagentd_exec = which(args.vdagentd_exec)
+    if not agents_new_enough(args):
+        if args.vdagent_enabled:
+            print("erorr: vdagent is not new enough to support Xspice")
+            raise SystemExit
+        args.vdagent_enabled = False
 
 def tls_files(args):
     if args.tls_port == 0:
@@ -196,7 +221,9 @@ var_args = ['port', 'tls_port', 'disable_ticketing',
     'x509_key_file', 'x509_key_password',
     'tls_ciphers', 'dh_file', 'password', 'image_compression',
     'jpeg_wan_compression', 'zlib_glz_wan_compression',
-    'streaming_video', 'deferred_fps', 'exit_on_disconnect']
+    'streaming_video', 'deferred_fps', 'exit_on_disconnect',
+    'vdagent_enabled', 'vdagent_virtio_path', 'vdagent_uinput_path']
+
 for arg in var_args:
     if getattr(args, arg):
         # The Qxl code doesn't respect booleans, so pass them as 0/1
@@ -226,6 +253,13 @@ if cgdb and args.cgdb:
 # This is currently mandatory; the driver cannot survive a reset
 xorg_args = [ '-noreset' ] + xorg_args
 
+
+# TODO /tmp/xspice-vdagent - replace with temporary file in temporary directory
+vdagentd_uds = '/tmp/xspice-vdagent'
+if args.vdagent_enabled:
+    for f in [vdagentd_uds, args.vdagent_virtio_path, args.vdagent_uinput_path]:
+        if os.path.exists(f):
+            os.unlink(f)
 xorg = launch(executable=args.xorg, args=exec_args + xorg_args)
 time.sleep(2)
 
@@ -233,6 +267,14 @@ retpid,rc = os.waitpid(xorg.pid, os.WNOHANG)
 if retpid != 0:
     print "Error: X server is not running"
 else:
+    if args.vdagent_enabled and args.vdagent_launch:
+        # XXX use systemd --user for this?
+        vdagentd = launch(args=[args.vdagentd_exec, '-x', '-S', vdagentd_uds,
+                          '-s', args.vdagent_virtio_path, '-u', args.vdagent_uinput_path])
+        time.sleep(1)
+        # TODO wait for uinput pipe open for write
+        vdagent = launch(args=[args.vdagent_exec, '-x', '-s', args.vdagent_virtio_path, '-S',
+                         vdagentd_uds])
     if args.xsession:
         environ = os.environ
         os.spawnlpe(os.P_NOWAIT, args.xsession, environ)
