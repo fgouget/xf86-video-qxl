@@ -471,10 +471,8 @@ image_from_surface_internal(qxl_screen_t *qxl,
     return image_bo;
 }
 
-struct qxl_bo *image_from_surface(qxl_screen_t *qxl, qxl_surface_t *dest)
+static struct qxl_bo *image_from_surface(qxl_screen_t *qxl, qxl_surface_t *dest)
 {
-    struct QXLImage *image_bo;
-
     if (!dest->image_bo)
       dest->image_bo = image_from_surface_internal(qxl, dest);
 
@@ -520,7 +518,6 @@ qxl_surface_copy (qxl_surface_t *dest,
     else
     {
 	struct qxl_bo *image_bo;
-	struct QXLImage *image;
 
 	dest->u.copy_src->ref_count++;
 
@@ -590,8 +587,6 @@ image_from_picture (qxl_screen_t *qxl,
 		    qxl_surface_t *surface,
 		    int *force_opaque)
 {
-    struct qxl_bo *image_bo;
-
     if (picture->format == PICT_x8r8g8b8)
 	*force_opaque = TRUE;
     else

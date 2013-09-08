@@ -83,7 +83,6 @@ static Bool qxl_open_drm_master(ScrnInfoPtr pScrn)
 	return FALSE;
     }
 
- out:
     qxl->drmmode.fd = qxl->drm_fd;
     return TRUE;
 }
@@ -181,7 +180,6 @@ qxl_create_screen_resources_kms(ScreenPtr pScreen)
     Bool           ret;
     PixmapPtr      pPixmap;
     qxl_surface_t *surf;
-    int            i;
     
     pScreen->CreateScreenResources = qxl->create_screen_resources;
     ret = pScreen->CreateScreenResources (pScreen);
@@ -257,7 +255,6 @@ Bool qxl_screen_init_kms(SCREEN_INIT_ARGS_DECL)
     ScrnInfoPtr    pScrn = xf86ScreenToScrn (pScreen);
     qxl_screen_t * qxl = pScrn->driverPrivate;
     VisualPtr      visual;
-    uint64_t n_surf;
 
     miClearVisualTypes ();
     if (!miSetVisualTypes (pScrn->depth, miGetDefaultVisualMask (pScrn->depth),
@@ -369,7 +366,6 @@ static struct qxl_bo *qxl_bo_alloc(qxl_screen_t *qxl,
         return NULL; // an invalid handle
     }
 
- out:
     bo->name = name;
     bo->size = size;
     bo->type = QXL_BO_DATA;
@@ -383,8 +379,6 @@ static struct qxl_bo *qxl_cmd_alloc(qxl_screen_t *qxl,
 				    unsigned long size, const char *name)
 {
     struct qxl_kms_bo *bo;
-    struct drm_qxl_alloc alloc;
-    int ret;
 
     bo = calloc(1, sizeof(struct qxl_kms_bo));
     if (!bo)
@@ -496,27 +490,6 @@ static void qxl_bo_output_bo_reloc(qxl_screen_t *qxl, uint32_t dst_offset,
     r->dst_handle = dst_bo->handle;
     r->src_handle = src_bo->handle;
     r->dst_offset = dst_offset;
-    r->src_offset = 0;
-    qxl->cmds.n_relocs++;
-}
-
-static void qxl_bo_output_cmd_reloc(qxl_screen_t *qxl, QXLCommand *command,
-				    struct qxl_bo *_src_bo)
-{
-    struct qxl_kms_bo *src_bo = (struct qxl_kms_bo *)_src_bo;
-    struct drm_qxl_reloc *r = &qxl->cmds.relocs[qxl->cmds.n_relocs];
-
-    if (qxl->cmds.n_reloc_bos >= MAX_RELOCS || qxl->cmds.n_relocs >= MAX_RELOCS)
-      assert(0);
-
-    qxl->cmds.reloc_bo[qxl->cmds.n_reloc_bos] = _src_bo;
-    qxl->cmds.n_reloc_bos++;
-    src_bo->refcnt++;
-    /* fix the kernel names */
-    r->reloc_type = QXL_RELOC_TYPE_BO;
-    r->dst_handle = 0;
-    r->src_handle = src_bo->handle;
-    r->dst_offset = 0;
     r->src_offset = 0;
     qxl->cmds.n_relocs++;
 }
