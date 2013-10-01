@@ -1214,10 +1214,12 @@ qxl_init_scrn (ScrnInfoPtr pScrn, Bool kms)
     pScrn->name             = driver_name;
 
     if (kms) {
+#ifdef XF86DRM_MODE
 	pScrn->PreInit          = qxl_pre_init_kms;
 	pScrn->ScreenInit       = qxl_screen_init_kms;
 	pScrn->EnterVT          = qxl_enter_vt_kms;
 	pScrn->LeaveVT          = qxl_leave_vt_kms;
+#endif
     } else {
 	pScrn->PreInit          = qxl_pre_init;
 	pScrn->ScreenInit       = qxl_screen_init;
@@ -1260,7 +1262,7 @@ static Bool qxl_kernel_mode_enabled(ScrnInfoPtr pScrn, struct pci_device *pci_de
     return TRUE;
 }
 #else
-#define radeon_kernel_mode_enabled(x, y) FALSE
+#define qxl_kernel_mode_enabled(x, y) FALSE
 #endif
 
 #ifdef XSPICE
