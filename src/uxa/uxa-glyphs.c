@@ -715,7 +715,7 @@ uxa_glyphs_to_dst(CARD8 op,
 			src_y += localSrc->pDrawable->y + src_off_y;
 		} else {
 			localSrc = uxa_acquire_pattern(screen, pSrc,
-						       PICT_a8r8g8b8, x, y, width, height);
+						       PIXMAN_a8r8g8b8, 0, 0, width, height);
 			if (!localSrc)
 				return 1;
 

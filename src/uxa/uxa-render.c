@@ -418,7 +418,7 @@ uxa_try_driver_solid_fill(PicturePtr pSrc,
 
 			if (!uxa_get_rgba_from_pixel(solid->color,
 						     &red, &green, &blue, &alpha,
-						     PICT_a8r8g8b8) ||
+						     PIXMAN_a8r8g8b8) ||
 			    !uxa_get_pixel_from_rgba(&pixel,
 						     red, green, blue, alpha,
 						     pDst->format)) {
@@ -880,7 +880,7 @@ uxa_acquire_source(ScreenPtr screen,
 		   INT16 * out_x, INT16 * out_y)
 {
 	return uxa_acquire_picture (screen, pict,
-				    PICT_a8r8g8b8,
+				    PIXMAN_a8r8g8b8,
 				    x, y,
 				    width, height,
 				    out_x, out_y);
@@ -894,7 +894,7 @@ uxa_acquire_mask(ScreenPtr screen,
 		 INT16 * out_x, INT16 * out_y)
 {
 	return uxa_acquire_picture (screen, pict,
-				    PICT_a8,
+				    PIXMAN_a8,
 				    x, y,
 				    width, height,
 				    out_x, out_y);
