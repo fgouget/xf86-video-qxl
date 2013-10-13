@@ -167,9 +167,9 @@ scan_fifos (struct audio_data *data, const char *dirname)
             return 0;
         }
 
-        strncpy(path, dirname, sizeof(path));
-        strncat(path, "/", sizeof(path));
-        strncat(path, ent->d_name, sizeof(path));
+        if (snprintf(path, sizeof(path), "%s/%s", dirname, ent->d_name) >= sizeof(path)) {
+            ErrorF("playback: FIFO filename is too long - truncated into %s", path);
+        }
 
         data->fifo_fds[i] = open(path, O_RDONLY | O_RSYNC | O_NONBLOCK);
         if (data->fifo_fds[i] < 0)
