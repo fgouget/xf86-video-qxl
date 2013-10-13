@@ -804,7 +804,7 @@ qxl_surface_put_image (qxl_surface_t *dest,
 }
 
 void
-qxl_get_formats (int bpp, SpiceBitmapFmt *format, pixman_format_code_t *pformat)
+qxl_get_formats (int bpp, SpiceSurfaceFmt *format, pixman_format_code_t *pformat)
 {
     switch (bpp)
     {
@@ -829,7 +829,8 @@ qxl_get_formats (int bpp, SpiceBitmapFmt *format, pixman_format_code_t *pformat)
 	break;
 
     default:
-	*format = *pformat = -1;
+	*format = -1;
+	*pformat = -1;
 	break;
     }
 }

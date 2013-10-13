@@ -607,7 +607,7 @@ Bool qxl_enter_vt_kms (VT_FUNC_ARGS_DECL);
 void qxl_leave_vt_kms (VT_FUNC_ARGS_DECL);
 void qxl_set_screen_pixmap_header (ScreenPtr pScreen);
 Bool qxl_resize_primary_to_virtual (qxl_screen_t *qxl);
-void qxl_get_formats (int bpp, SpiceBitmapFmt *format, pixman_format_code_t *pformat);
+void qxl_get_formats (int bpp, SpiceSurfaceFmt *format, pixman_format_code_t *pformat);
 
 #ifdef XF86DRM_MODE
 Bool qxl_pre_init_kms(ScrnInfoPtr pScrn, int flags);

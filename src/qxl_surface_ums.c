@@ -430,7 +430,7 @@ surface_send_create (surface_cache_t *cache,
 		     int	      height,
 		     int	      bpp)
 {
-    SpiceBitmapFmt format;
+    SpiceSurfaceFmt format;
     pixman_format_code_t pformat;
     struct QXLSurfaceCmd *cmd;
     int stride;

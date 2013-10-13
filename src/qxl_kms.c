@@ -593,7 +593,7 @@ qxl_kms_surface_create(qxl_screen_t *qxl,
 		       int height,
 		       int bpp)
 {
-    SpiceBitmapFmt format;
+    SpiceSurfaceFmt format;
     qxl_surface_t *surface;
     int stride;
     struct qxl_kms_bo *bo;
