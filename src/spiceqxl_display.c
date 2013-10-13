@@ -287,7 +287,8 @@ static int interface_req_cursor_notification(QXLInstance *sin)
 }
 
 /* called from spice server thread context */
-static void interface_notify_update(QXLInstance *sin, uint32_t update_id)
+static void __attribute__ ((__noreturn__))
+    interface_notify_update(QXLInstance *sin, uint32_t update_id)
 {
     fprintf(stderr, "%s: abort()\n", __FUNCTION__);
     abort();
