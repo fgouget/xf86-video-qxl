@@ -1214,7 +1214,7 @@ qxl_init_scrn (ScrnInfoPtr pScrn, Bool kms)
     pScrn->name             = driver_name;
 
     if (kms) {
-#ifdef XF86DRM_MODE
+#if !defined(XSPICE) && defined(XF86DRM_MODE)
 	pScrn->PreInit          = qxl_pre_init_kms;
 	pScrn->ScreenInit       = qxl_screen_init_kms;
 	pScrn->EnterVT          = qxl_enter_vt_kms;
