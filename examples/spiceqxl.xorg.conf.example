@@ -111,7 +111,8 @@ Section "Device"
     # If a directory is given, any file in that
     #  directory will be read for audio data to be sent
     #  to the client.   Default is no mixing.
-    #Option "SpicePlaybackFIFODir"  ""
+    #Option "SpicePlaybackFIFODir"  "/tmp/"
+
 EndSection
 
 Section "InputDevice"

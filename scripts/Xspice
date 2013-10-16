@@ -90,6 +90,7 @@ parser.add_argument('--vdagent-uinput-path', default='/tmp/xspice-uinput', help=
 parser.add_argument('--vdagentd-exec', default='spice-vdagentd')
 parser.add_argument('--vdagent-exec', default='spice-vdagent')
 parser.add_argument('--vdagent-no-launch', default=True, action='store_false', dest='vdagent_launch')
+parser.add_argument('--audio-fifo-dir', default='')
 
 #TODO
 #Option "SpiceAddr" ""
@@ -174,10 +175,15 @@ if args.auto:
     cleanup_files.append(cf.name + ".log")
     args.config = cf.name
     xorg_args = [ '-logfile', cf.name + ".log" ] + xorg_args
+    if args.audio_fifo_dir:
+        options = 'Option "SpicePlaybackFIFODir"  "%s"' % args.audio_fifo_dir
+    else:
+        options = ''
     cf.write("""
 Section "Device"
     Identifier "XSPICE"
     Driver "spiceqxl"
+    %(options)s
 EndSection
 
 Section "InputDevice"
@@ -213,7 +219,7 @@ Section "ServerFlags"
 EndSection
 
 
-    """)
+    """ % locals())
     cf.flush()
 
 var_args = ['port', 'tls_port', 'disable_ticketing',
