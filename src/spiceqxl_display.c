@@ -95,7 +95,7 @@ static void interface_attach_worker(QXLInstance *sin, QXLWorker *qxl_worker)
         return;
     }
     dprint(qxl, 1, "%s:\n", __FUNCTION__);
-    qxl_worker->add_memslot(qxl_worker, &slot);
+    spice_qxl_add_memslot(sin, &slot);
     qxl->worker = qxl_worker;
 }
 

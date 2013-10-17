@@ -123,7 +123,7 @@ static void qxl_soft_reset(qxl_screen_t *qxl)
 static void qxl_reset_surfaces(qxl_screen_t *qxl)
 {
     dprint(1, "%s:\n", __FUNCTION__);
-    qxl->worker->destroy_surfaces(qxl->worker);
+    spice_qxl_destroy_surfaces(&qxl->display_sin);
     // TODO - do we have guest_surfaces?
     //memset(&d->guest_surfaces.cmds, 0, sizeof(d->guest_surfaces.cmds));
 }
@@ -132,8 +132,8 @@ static void qxl_hard_reset(qxl_screen_t *qxl)
 {
     dprint(1, "%s: start\n", __FUNCTION__);
 
-    qxl->worker->reset_cursor(qxl->worker);
-    qxl->worker->reset_image_cache(qxl->worker);
+    spice_qxl_reset_cursor(&qxl->display_sin);
+    spice_qxl_reset_image_cache(&qxl->display_sin);
     qxl_reset_surfaces(qxl);
 
     qxl_reset_state(qxl);
@@ -161,14 +161,14 @@ static void qxl_create_guest_primary(qxl_screen_t *qxl)
     surface.mouse_mode = TRUE;
     surface.group_id   = 0;
     qxl->cmdflags = 0;
-    qxl->worker->create_primary_surface(qxl->worker, 0, &surface);
+    spice_qxl_create_primary_surface(&qxl->display_sin, 0, &surface);
 }
 
 static void qxl_destroy_primary(qxl_screen_t *qxl)
 {
     dprint(1, "%s\n", __FUNCTION__);
 
-    qxl->worker->destroy_primary_surface(qxl->worker, 0);
+    spice_qxl_destroy_primary_surface(&qxl->display_sin, 0);
 }
 
 
@@ -216,15 +216,15 @@ void ioport_write(qxl_screen_t *qxl, uint32_t io_port, uint32_t val)
     case QXL_IO_UPDATE_AREA:
     {
         QXLRect update = *(QXLRect*)&header->update_area;
-        qxl->worker->update_area(qxl->worker, header->update_surface,
+        spice_qxl_update_area(&qxl->display_sin, header->update_surface,
                                    &update, NULL, 0, 0);
         break;
     }
     case QXL_IO_NOTIFY_CMD:
-        qxl->worker->wakeup(qxl->worker);
+        spice_qxl_wakeup(&qxl->display_sin);
         break;
     case QXL_IO_NOTIFY_CURSOR:
-        qxl->worker->wakeup(qxl->worker);
+        spice_qxl_wakeup(&qxl->display_sin);
         break;
     case QXL_IO_UPDATE_IRQ:
         /* qxl_set_irq(d); */
@@ -238,7 +238,7 @@ void ioport_write(qxl_screen_t *qxl, uint32_t io_port, uint32_t val)
         if (!SPICE_RING_IS_EMPTY(&header->release_ring)) {
             break;
         }
-        qxl->worker->oom(qxl->worker);
+        spice_qxl_oom(&qxl->display_sin);
         break;
     case QXL_IO_SET_MODE:
         dprint(1, "QXL_SET_MODE %d\n", val);
@@ -270,10 +270,10 @@ void ioport_write(qxl_screen_t *qxl, uint32_t io_port, uint32_t val)
         qxl_destroy_primary(qxl);
         break;
     case QXL_IO_DESTROY_SURFACE_WAIT:
-        qxl->worker->destroy_surface_wait(qxl->worker, val);
+        spice_qxl_destroy_surface_wait(&qxl->display_sin, val);
         break;
     case QXL_IO_DESTROY_ALL_SURFACES:
-        qxl->worker->destroy_surfaces(qxl->worker);
+        spice_qxl_destroy_surfaces(&qxl->display_sin);
         break;
     case QXL_IO_FLUSH_SURFACES_ASYNC:
         fprintf(stderr, "ERROR: async callback Unimplemented\n");

@@ -270,7 +270,7 @@ qxl_unmap_memory (qxl_screen_t *qxl)
 #ifdef XSPICE
     if (qxl->worker)
     {
-	qxl->worker->stop (qxl->worker);
+        spice_server_vm_stop(qxl->spice_server);
 	qxl->worker_running = FALSE;
     }
 #endif
@@ -662,7 +662,7 @@ spiceqxl_screen_init (ScrnInfoPtr pScrn, qxl_screen_t *qxl)
     if (! qxl->worker_running)
     {
         xspice_register_handlers();
-	qxl->worker->start (qxl->worker);
+        spice_server_vm_start(qxl->spice_server);
 	qxl->worker_running = TRUE;
     }
 }
