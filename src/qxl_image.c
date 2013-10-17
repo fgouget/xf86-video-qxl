@@ -125,9 +125,6 @@ remove_image_info (image_info_t *info)
     free (info);
 }
 
-#define MAX(a,b)  (((a) > (b))? (a) : (b))
-#define MIN(a,b)  (((a) < (b))? (a) : (b))
-
 struct qxl_bo *
 qxl_image_create (qxl_screen_t *qxl, const uint8_t *data,
 		  int x, int y, int width, int height,
