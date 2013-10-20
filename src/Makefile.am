@@ -110,6 +110,7 @@ spiceqxl_drv_la_SOURCES =				\
 	murmurhash3.h				\
 	qxl_cursor.c				\
 	dfps.c				        \
+	dfps.h						\
 	qxl_uxa.c                               \
 	qxl_ums_mode.c                     	\
 	qxl_io.c                                \
