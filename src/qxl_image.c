@@ -31,6 +31,9 @@
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
+
+#include <spice/macros.h>
+
 #include "qxl.h"
 #include "murmurhash3.h"
 
