@@ -1,0 +1,12 @@
+Major changes in 0.1.1
+======================
+
+KMS support
+DFPS available to guest driver too
+Xspice audio & agent support
+GPL code removed (EDID)
+Warnings squash
+Bug fixes (numbers are Red Hat Bugzilla bug ids):
+ 883578 - remote-viewer gets frozen after migration of guest with video playback
+ 968931 - Crash in Xspice after closing tab with spice-html5
+ 894421 - Small change in guests resolution results in wrong resolution
