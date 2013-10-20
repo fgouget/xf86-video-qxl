@@ -22,6 +22,7 @@ import sys
 import tempfile
 import atexit
 import time
+import signal
 from subprocess import Popen, PIPE
 
 def which(x):
@@ -154,7 +155,7 @@ if not args.xorg:
 cleanup_files = []
 cleanup_processes = []
 
-def cleanup():
+def cleanup(*args):
     for f in cleanup_files:
         if os.path.isfile(f):
             os.remove(f)
@@ -162,12 +163,14 @@ def cleanup():
         p.kill()
     for p in cleanup_processes:
         p.wait()
+    del cleanup_processes[:]
 
 def launch(*args, **kw):
     p = Popen(*args, **kw)
     cleanup_processes.append(p)
     return p
 
+signal.signal(signal.SIGTERM, cleanup)
 atexit.register(cleanup)
 
 if args.auto:
