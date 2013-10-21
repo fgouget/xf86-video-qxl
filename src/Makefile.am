@@ -79,6 +79,8 @@ spiceqxl_drv_la_SOURCES =				\
 	qxl.h					\
 	qxl_option_helpers.c			\
 	qxl_option_helpers.h			\
+	spiceqxl_util.h					\
+	spiceqxl_util.c					\
 	spiceqxl_spice_server.c			\
 	spiceqxl_spice_server.h			\
 	spiceqxl_io_port.c			\

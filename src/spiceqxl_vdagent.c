@@ -10,6 +10,7 @@
 
 #include "qxl_option_helpers.h"
 
+#include "spiceqxl_util.h"
 #include "spiceqxl_uinput.h"
 #include "spiceqxl_vdagent.h"
 
@@ -156,6 +157,7 @@ void spiceqxl_vdagent_init(qxl_screen_t *qxl)
                 vdagent_virtio_filename, strerror(errno));
         return;
     }
+    spiceqxl_chown_agent_file(qxl, vdagent_virtio_filename);
     c = listen(virtio_fd, 1);
     if (c != 0) {
         fprintf(stderr, "error listening to unix domain socket: %s\n", strerror(errno));

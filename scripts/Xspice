@@ -91,6 +91,8 @@ parser.add_argument('--vdagent-uinput-path', default='/tmp/xspice-uinput', help=
 parser.add_argument('--vdagentd-exec', default='spice-vdagentd')
 parser.add_argument('--vdagent-exec', default='spice-vdagent')
 parser.add_argument('--vdagent-no-launch', default=True, action='store_false', dest='vdagent_launch')
+parser.add_argument('--vdagent-uid', default=str(os.getuid()))
+parser.add_argument('--vdagent-gid', default=str(os.getgid()))
 parser.add_argument('--audio-fifo-dir', default='')
 
 #TODO
@@ -231,7 +233,8 @@ var_args = ['port', 'tls_port', 'disable_ticketing',
     'tls_ciphers', 'dh_file', 'password', 'image_compression',
     'jpeg_wan_compression', 'zlib_glz_wan_compression',
     'streaming_video', 'deferred_fps', 'exit_on_disconnect',
-    'vdagent_enabled', 'vdagent_virtio_path', 'vdagent_uinput_path']
+    'vdagent_enabled', 'vdagent_virtio_path', 'vdagent_uinput_path',
+    'vdagent_uid', 'vdagent_gid']
 
 for arg in var_args:
     if getattr(args, arg):

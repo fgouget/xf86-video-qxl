@@ -142,6 +142,10 @@ const OptionInfoRec DefaultOptions[] =
       "SpiceVdagentVirtioPath",   OPTV_STRING,    {.str = spice_vdagent_virtio_path_default}, FALSE},
     { OPTION_SPICE_VDAGENT_UINPUT_PATH,
       "SpiceVdagentUinputPath",   OPTV_STRING,    {.str = spice_vdagent_uinput_path_default}, FALSE},
+    { OPTION_SPICE_VDAGENT_UID,
+      "SpiceVdagentUid",          OPTV_INTEGER,    {0}, FALSE},
+    { OPTION_SPICE_VDAGENT_GID,
+      "SpiceVdagentGid",          OPTV_INTEGER,    {0}, FALSE},
 #endif
     
     { -1, NULL, OPTV_NONE, {0}, FALSE }
