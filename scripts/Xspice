@@ -162,9 +162,15 @@ def cleanup(*args):
         if os.path.exists(f):
             os.remove(f)
     for p in cleanup_processes:
-        p.kill()
+        try:
+            p.kill()
+        except OSError:
+            pass
     for p in cleanup_processes:
-        p.wait()
+        try:
+            p.wait()
+        except OSError:
+            pass
     del cleanup_processes[:]
 
 def launch(*args, **kw):
