@@ -278,6 +278,7 @@ if args.vdagent_enabled:
     for f in [vdagentd_uds, args.vdagent_virtio_path, args.vdagent_uinput_path]:
         if os.path.exists(f):
             os.unlink(f)
+    cleanup_files.extend([args.vdagent_virtio_path, args.vdagent_uinput_path])
 xorg = launch(executable=args.xorg, args=exec_args + xorg_args)
 time.sleep(2)
 
