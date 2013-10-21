@@ -159,7 +159,7 @@ cleanup_processes = []
 
 def cleanup(*args):
     for f in cleanup_files:
-        if os.path.isfile(f):
+        if os.path.exists(f):
             os.remove(f)
     for p in cleanup_processes:
         p.kill()
