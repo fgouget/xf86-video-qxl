@@ -254,9 +254,6 @@ void xspice_set_spice_server_options(OptionInfoPtr options)
         exit(1);
 #endif
     }
-    if (disable_ticketing) {
-        spice_server_set_noauth(spice_server);
-    }
 
 #if SPICE_SERVER_VERSION >= 0x000801
     /* we still don't actually support agent in xspice, but this
