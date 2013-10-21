@@ -57,7 +57,7 @@ def launch_xspice(port):
     if not os.path.exists(basedir):
         os.mkdir(basedir)
     assert(os.path.exists(basedir))
-    xspice = Process.new(['../scripts/Xspice', '--port', '8000', '--auto', '--audio-fifo-dir', basedir, '--disable-ticketing', ':15.0'])
+    xspice = Process.new(['../scripts/Xspice', '--port', str(port), '--auto', '--audio-fifo-dir', basedir, '--disable-ticketing', ':15.0'])
     xspice.audio_fifo_dir = basedir
     return xspice
 
