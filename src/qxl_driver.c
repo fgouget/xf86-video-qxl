@@ -749,8 +749,6 @@ qxl_screen_init (SCREEN_INIT_ARGS_DECL)
 	}
     }
     
-    qxl->uxa = uxa_driver_alloc ();
-    
 #ifndef XSPICE
     qxl->io_pages = (void *)((unsigned long)qxl->ram);
     qxl->io_pages_physical = (void *)((unsigned long)qxl->ram_physical);
