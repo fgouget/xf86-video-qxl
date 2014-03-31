@@ -193,12 +193,17 @@ audio_thread_main (void *p)
     qxl_screen_t *qxl = p;
     int i;
     struct audio_data data;
+    int freq = SPICE_INTERFACE_PLAYBACK_FREQ;
 
     for (i = 0; i < MAX_FIFOS; ++i)
         data.fifo_fds[i] = -1;
 
     data.valid_bytes = data.fed = 0;
-    data.period_frames = SPICE_INTERFACE_PLAYBACK_FREQ * PERIOD_MS / 1000;
+#if SPICE_INTERFACE_PLAYBACK_MAJOR > 1 || SPICE_INTERFACE_PLAYBACK_MINOR >= 3
+    freq = spice_server_get_best_playback_rate(&qxl->playback_sin);
+#endif
+    data.period_frames = freq * PERIOD_MS / 1000;
+
 
     data.frame_bytes = sizeof(int16_t) * SPICE_INTERFACE_PLAYBACK_CHAN;
 
@@ -330,10 +335,16 @@ qxl_add_spice_playback_interface (qxl_screen_t *qxl)
     if (ret < 0)
         return errno;
 
+#if SPICE_INTERFACE_PLAYBACK_MAJOR > 1 || SPICE_INTERFACE_PLAYBACK_MINOR >= 3
+    spice_server_set_playback_rate(&qxl->playback_sin,
+            spice_server_get_best_playback_rate(&qxl->playback_sin));
+#else
     /* disable CELT */
     ret = spice_server_set_playback_compression(qxl->spice_server, 0);
     if (ret < 0)
         return errno;
+
+#endif
 
     ret = pthread_create(&qxl->audio_thread, NULL, &audio_thread_main, qxl);
     if (ret < 0)
