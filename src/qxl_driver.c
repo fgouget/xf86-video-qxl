@@ -1432,6 +1432,10 @@ qxl_driver_func(ScrnInfoPtr pScrn, xorgDriverFuncOp op, void *data)
         *hw_flags = HW_IO | HW_MMIO;
 #endif
         return TRUE;
+#if XORG_VERSION_CURRENT >= XORG_VERSION_NUMERIC(1,15,99,902,0)
+    case SUPPORTS_SERVER_FDS:
+        return TRUE;
+#endif
     default:
         return FALSE;
     }

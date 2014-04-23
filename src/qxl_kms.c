@@ -46,6 +46,17 @@ static Bool qxl_open_drm_master(ScrnInfoPtr pScrn)
     drmSetVersion sv;
     int err;
 
+#if defined(ODEV_ATTRIB_FD)
+    if (qxl->platform_dev) {
+        qxl->drm_fd = xf86_get_platform_device_int_attrib(qxl->platform_dev,
+                                                          ODEV_ATTRIB_FD, -1);
+        if (qxl->drm_fd != -1) {
+            qxl->drmmode.fd = qxl->drm_fd;
+            return TRUE;
+        }
+    }
+#endif
+
 #if XORG_VERSION_CURRENT >= XORG_VERSION_NUMERIC(1,9,99,901,0)
     XNFasprintf(&busid, "pci:%04x:%02x:%02x.%d",
                 dev->domain, dev->bus, dev->dev, dev->func);
@@ -218,11 +229,17 @@ qxl_enter_vt_kms (VT_FUNC_ARGS_DECL)
     qxl_screen_t *qxl = pScrn->driverPrivate;
     int ret;
 
-    ret = drmSetMaster(qxl->drm_fd);
-    if (ret) {
-	xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-		   "drmSetMaster failed: %s\n",
-		   strerror(errno));
+#ifdef XF86_PDEV_SERVER_FD
+    if (!(qxl->platform_dev &&
+            (qxl->platform_dev->flags & XF86_PDEV_SERVER_FD)))
+#endif
+    {
+        ret = drmSetMaster(qxl->drm_fd);
+        if (ret) {
+            xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
+                       "drmSetMaster failed: %s\n",
+                       strerror(errno));
+        }
     }
 
     if (!xf86SetDesiredModes(pScrn))
@@ -240,6 +257,11 @@ qxl_leave_vt_kms (VT_FUNC_ARGS_DECL)
     qxl_screen_t *qxl = pScrn->driverPrivate;
     xf86_hide_cursors (pScrn);
     //    pScrn->EnableDisableFBAccess (XF86_SCRN_ARG (pScrn), FALSE);
+
+#ifdef XF86_PDEV_SERVER_FD
+    if (qxl->platform_dev && (qxl->platform_dev->flags & XF86_PDEV_SERVER_FD))
+        return;
+#endif
 
     ret = drmDropMaster(qxl->drm_fd);
     if (ret) {
