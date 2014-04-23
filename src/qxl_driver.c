@@ -1302,12 +1302,6 @@ qxl_probe (struct _DriverRec *drv, int flags)
     return TRUE;
 }
 
-static Bool qxl_driver_func (ScrnInfoPtr screen_info_ptr, xorgDriverFuncOp xorg_driver_func_op, pointer hw_flags)
-{
-    *(xorgHWFlags*)hw_flags = (xorgHWFlags)HW_SKIP_CONSOLE;
-    return TRUE;
-}
-
 #else /* normal, not XSPICE */
 #ifndef XSERVER_LIBPCIACCESS
 static Bool
@@ -1424,6 +1418,25 @@ qxl_platform_probe(DriverPtr driver, int entity, int flags,
 
 #endif /* XSPICE */
 
+static Bool
+qxl_driver_func(ScrnInfoPtr pScrn, xorgDriverFuncOp op, void *data)
+{
+    xorgHWFlags *hw_flags;
+
+    switch (op) {
+    case GET_REQUIRED_HW_INTERFACES:
+        hw_flags = data;
+#ifdef XSPICE
+        *hw_flags = HW_SKIP_CONSOLE;
+#else
+        *hw_flags = HW_IO | HW_MMIO;
+#endif
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
+
 static DriverRec qxl_driver = {
     0,
     driver_name,
@@ -1432,13 +1445,12 @@ static DriverRec qxl_driver = {
     qxl_available_options,
     NULL,
     0,
-#ifdef XSPICE
     qxl_driver_func,
+#ifdef XSPICE
     NULL,
     NULL,
     NULL,
 #else
-    NULL,
 #ifdef XSERVER_LIBPCIACCESS
     qxl_device_match,
     qxl_pci_probe,
