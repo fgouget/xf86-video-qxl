@@ -50,6 +50,9 @@
 #ifdef XSERVER_PCIACCESS
 #include "pciaccess.h"
 #endif
+#ifdef XSERVER_PLATFORM_BUS
+#include "xf86platformBus.h"
+#endif
 #include "fb.h"
 #include "vgaHW.h"
 #endif /* XSPICE */
@@ -65,6 +68,8 @@ typedef struct list xorg_list_t;
 #else
 typedef struct xorg_list xorg_list_t;
 #endif
+
+struct xf86_platform_device;
 
 #include "compat-api.h"
 #define hidden _X_HIDDEN
@@ -271,6 +276,7 @@ struct _qxl_screen_t
     pciVideoPtr			pci;
     PCITAG			pci_tag;
 #endif
+    struct xf86_platform_device *platform_dev;
     vgaRegRec                   vgaRegs;
 #endif /* XSPICE */
 

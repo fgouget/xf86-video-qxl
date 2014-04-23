@@ -1387,6 +1387,41 @@ qxl_pci_probe (DriverPtr drv, int entity, struct pci_device *dev, intptr_t match
 #define qxl_probe NULL
 
 #endif
+
+#ifdef XSERVER_PLATFORM_BUS
+static Bool
+qxl_platform_probe(DriverPtr driver, int entity, int flags,
+                   struct xf86_platform_device *dev, intptr_t match_data)
+{
+    qxl_screen_t *qxl;
+    ScrnInfoPtr pScrn;
+    int scrnFlag = 0;
+
+    if (!dev->pdev)
+        return FALSE;
+
+    if (flags & PLATFORM_PROBE_GPU_SCREEN)
+        scrnFlag = XF86_ALLOCATE_GPU_SCREEN;
+
+    pScrn = xf86AllocateScreen(driver, scrnFlag);
+    if (!pScrn)
+	return FALSE;
+
+    if (xf86IsEntitySharable(entity))
+        xf86SetEntityShared(entity);
+
+    xf86AddEntityToScreen(pScrn, entity);
+
+    qxl = pScrn->driverPrivate = xnfcalloc (sizeof (qxl_screen_t), 1);
+    qxl->pci = dev->pdev;
+    qxl->platform_dev = dev;
+
+    qxl_init_scrn (pScrn, qxl_kernel_mode_enabled(pScrn, dev->pdev));
+
+    return TRUE;
+}
+#endif /* XSERVER_PLATFORM_BUS */
+
 #endif /* XSPICE */
 
 static DriverRec qxl_driver = {
@@ -1400,12 +1435,21 @@ static DriverRec qxl_driver = {
 #ifdef XSPICE
     qxl_driver_func,
     NULL,
-    NULL
+    NULL,
+    NULL,
 #else
     NULL,
 #ifdef XSERVER_LIBPCIACCESS
     qxl_device_match,
-    qxl_pci_probe
+    qxl_pci_probe,
+#else
+    NULL,
+    NULL,
+#endif
+#ifdef XSERVER_PLATFORM_BUS
+    qxl_platform_probe,
+#else
+    NULL,
 #endif
 #endif /* XSPICE */
 };
