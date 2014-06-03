@@ -140,6 +140,7 @@ qxl_image_create (qxl_screen_t *qxl, const uint8_t *data,
 	struct qxl_bo *image_bo;
 	int dest_stride = (width * Bpp + 3) & (~3);
 	int h;
+	int chunk_size;
 
 	data += y * stride + x * Bpp;
 
@@ -155,9 +156,23 @@ qxl_image_create (qxl_screen_t *qxl, const uint8_t *data,
 
 	hash = 0;
 	h = height;
+
+	chunk_size = MAX (512 * 512, dest_stride);
+
+	/* ensure we will not create too many pieces and overflow
+	 * the command buffer (MAX_RELOCS).  if so, increase the chunk_size.
+	 * each loop creates at least 2 cmd buffer entries, and
+	 * we have to leave room when we're done.
+	 */
+	if (height / (chunk_size / dest_stride) > (MAX_RELOCS / 4)) {
+		chunk_size = height / (MAX_RELOCS/4) * dest_stride;
+#if 0
+		ErrorF ("adjusted chunk_size to %d\n", chunk_size);
+#endif
+	}
+
 	while (h)
 	{
-	    int chunk_size = MAX (512 * 512, dest_stride);
 	    int n_lines = MIN ((chunk_size / dest_stride), h);
 	    struct qxl_bo *bo = qxl->bo_funcs->bo_alloc (qxl, sizeof (QXLDataChunk) + n_lines * dest_stride, "image data");
 
