@@ -1242,7 +1242,7 @@ qxl_init_scrn (ScrnInfoPtr pScrn, Bool kms)
     pScrn->ValidMode        = NULL;
 }
 
-#ifdef XF86DRM_MODE
+#if defined(XF86DRM_MODE) && !defined(XSPICE)
 static char *
 CreatePCIBusID(const struct pci_device *dev)
 {
