@@ -159,6 +159,7 @@ qxl_image_create (qxl_screen_t *qxl, const uint8_t *data,
 
 	chunk_size = MAX (512 * 512, dest_stride);
 
+#ifdef XF86DRM_MODE
 	/* ensure we will not create too many pieces and overflow
 	 * the command buffer (MAX_RELOCS).  if so, increase the chunk_size.
 	 * each loop creates at least 2 cmd buffer entries, and
@@ -170,6 +171,7 @@ qxl_image_create (qxl_screen_t *qxl, const uint8_t *data,
 		ErrorF ("adjusted chunk_size to %d\n", chunk_size);
 #endif
 	}
+#endif
 
 	while (h)
 	{
