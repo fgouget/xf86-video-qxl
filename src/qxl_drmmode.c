@@ -47,6 +47,9 @@
 
 #include "qxl.h"
 #include "qxl_surface.h"
+
+static void drmmode_show_cursor (xf86CrtcPtr crtc);
+
 static void
 drmmode_ConvertFromKMode(ScrnInfoPtr	scrn,
 		     drmModeModeInfo *kmode,
@@ -247,6 +250,10 @@ done:
 	else
 		crtc->active = TRUE;
 #endif
+
+        CursorPtr cursor = xf86_config->cursor;
+        if (cursor)
+            drmmode_show_cursor(crtc);
 
 	return ret;
 }
