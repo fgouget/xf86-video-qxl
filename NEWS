@@ -1,3 +1,13 @@
+Major changes in 0.1.2
+======================
+Support for server managed fds
+Xspice: use playback rate interface if available
+
+Bugs fixed:
+ 1030531 - drm: restore cursor after resolution change
+ fix cursor2 support in older kernels
+ FD 79317 - prevent crash on dual head systems
+
 Major changes in 0.1.1
 ======================
 
