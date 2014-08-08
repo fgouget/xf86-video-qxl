@@ -214,11 +214,13 @@ drmmode_set_mode_major(xf86CrtcPtr crtc, DisplayModePtr mode,
 		}
 		ret = drmModeSetCrtc(drmmode->fd, drmmode_crtc->mode_crtc->crtc_id,
 				     fb_id, x, y, output_ids, output_count, &kmode);
-		if (ret)
+		if (ret) {
 			xf86DrvMsg(crtc->scrn->scrnIndex, X_ERROR,
 				   "failed to set mode: %s", strerror(-ret));
-		else
+			return FALSE;
+		} else {
 			ret = TRUE;
+		}
 
 		if (crtc->scrn->pScreen)
 			xf86CrtcSetScreenSubpixelOrder(crtc->scrn->pScreen);
@@ -825,8 +827,9 @@ drmmode_xf86crtc_resize (ScrnInfoPtr scrn, int width, int height)
 		xf86CrtcPtr crtc = xf86_config->crtc[i];
 		if (!crtc->enabled)
 			continue;
-		drmmode_set_mode_major(crtc, &crtc->mode, crtc->rotation,
-				       crtc->x, crtc->y);
+		if (!drmmode_set_mode_major(crtc, &crtc->mode, crtc->rotation,
+                                            crtc->x, crtc->y))
+                    goto fail;
 	}
 
 	{
