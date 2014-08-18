@@ -169,6 +169,7 @@ static void dfps_solid (PixmapPtr pixmap, int x_1, int y_1, int x_2, int y_2)
     RegionAppend(&info->updated_region, region);
     RegionValidate(&info->updated_region, &throwaway_bool);
     RegionUninit(region);
+    RegionDestroy(region);
     return;
 }
 
@@ -229,6 +230,7 @@ static void dfps_copy (PixmapPtr dest,
     RegionAppend(&info->updated_region, region);
     RegionValidate(&info->updated_region, &throwaway_bool);
     RegionUninit(region);
+    RegionDestroy(region);
 }
 
 static void dfps_done_copy (PixmapPtr dest)
@@ -258,6 +260,7 @@ static Bool dfps_put_image (PixmapPtr dest, int x, int y, int w, int h,
     RegionAppend(&info->updated_region, region);
     RegionValidate(&info->updated_region, &throwaway_bool);
     RegionUninit(region);
+    RegionDestroy(region);
 
     /* We can avoid doing the put image ourselves, as the uxa driver
        will fall back and do it for us if we return false */
