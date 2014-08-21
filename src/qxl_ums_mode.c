@@ -430,10 +430,10 @@ qxl_initialize_x_modes (qxl_screen_t *qxl, ScrnInfoPtr pScrn,
     {
 	if (qxl->modes[i].orientation == 0)
 	{
-	    size = qxl->modes[i].x_res * qxl->modes[i].y_res * 4;
+	    size = qxl->modes[i].y_res * qxl->modes[i].stride;
 	    if (size > qxl->surface0_size)
 	    {
-		ErrorF ("skipping mode %dx%d not fitting in surface0",
+		ErrorF ("skipping mode %dx%d not fitting in surface0\n",
 		        qxl->modes[i].x_res, qxl->modes[i].y_res);
 		continue;
 	    }
