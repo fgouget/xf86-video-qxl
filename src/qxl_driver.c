@@ -384,7 +384,7 @@ qxl_map_memory (qxl_screen_t *qxl, int scrnIndex)
     
     xf86DrvMsg (scrnIndex, X_INFO, "command ram at %p (%d KB)\n",
                 (void *)((unsigned long)qxl->ram + qxl->rom->surface0_area_size),
-                (qxl->rom->num_pages * getpagesize () - qxl->rom->surface0_area_size) / 1024);
+                (qxl->rom->num_pages * getpagesize ()) / 1024);
     
     xf86DrvMsg (scrnIndex, X_INFO, "vram at %p (%ld KB)\n",
                 qxl->vram, qxl->vram_size / 1024);
