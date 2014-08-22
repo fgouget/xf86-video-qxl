@@ -83,20 +83,18 @@ static QXLMode qxl_modes[] = {
     QXL_MODE_EX(1600, 1200),
     QXL_MODE_EX(1680, 1050),
     QXL_MODE_EX(1920, 1080),
-#if VGA_RAM_SIZE >= (16 * 1024 * 1024)
-    /* these modes need more than 8 MB video memory */
     QXL_MODE_EX(1920, 1200),
     QXL_MODE_EX(1920, 1440),
     QXL_MODE_EX(2048, 1536),
     QXL_MODE_EX(2560, 1440),
     QXL_MODE_EX(2560, 1600),
-#endif
-#if VGA_RAM_SIZE >= (32 * 1024 * 1024)
-    /* these modes need more than 16 MB video memory */
+    QXL_MODE_EX(3840, 1080),
     QXL_MODE_EX(2560, 2048),
     QXL_MODE_EX(2800, 2100),
     QXL_MODE_EX(3200, 2400),
-#endif
+    QXL_MODE_EX(5760, 1080),
+    QXL_MODE_EX(7680, 1080),
+
 };
 
 
@@ -106,10 +104,9 @@ void init_qxl_rom(qxl_screen_t* qxl, uint32_t rom_size)
     QXLRom *rom = qxl->rom;
     struct QXLModes *modes = (struct QXLModes *)(rom + 1);
     uint32_t ram_header_size;
-    uint32_t surface0_area_size;
     uint32_t num_pages;
-    uint32_t fb, maxfb = 0;
-    int i;
+    uint32_t fb;
+    int i, m;
 
     memset(rom, 0, rom_size);
 
@@ -124,36 +121,35 @@ void init_qxl_rom(qxl_screen_t* qxl, uint32_t rom_size)
     rom->slots_end     = 1;
     rom->n_surfaces    = (NUM_SURFACES);
 
-    modes->n_modes     = (SPICE_ARRAY_SIZE(qxl_modes));
-    for (i = 0; i < modes->n_modes; i++) {
+    for (i = 0, m = 0; i < (SPICE_ARRAY_SIZE(qxl_modes)); i++) {
         fb = qxl_modes[i].y_res * qxl_modes[i].stride;
-        if (maxfb < fb) {
-            maxfb = fb;
-        }
-        modes->modes[i].id          = (i);
-        modes->modes[i].x_res       = (qxl_modes[i].x_res);
-        modes->modes[i].y_res       = (qxl_modes[i].y_res);
-        modes->modes[i].bits        = (qxl_modes[i].bits);
-        modes->modes[i].stride      = (qxl_modes[i].stride);
-        modes->modes[i].x_mili      = (qxl_modes[i].x_mili);
-        modes->modes[i].y_mili      = (qxl_modes[i].y_mili);
-        modes->modes[i].orientation = (qxl_modes[i].orientation);
+        if (fb > qxl->surface0_size)
+            continue;
+
+        modes->modes[m].id          = m;
+        modes->modes[m].x_res       = qxl_modes[i].x_res;
+        modes->modes[m].y_res       = qxl_modes[i].y_res;
+        modes->modes[m].bits        = qxl_modes[i].bits;
+        modes->modes[m].stride      = qxl_modes[i].stride;
+        modes->modes[m].x_mili      = qxl_modes[i].x_mili;
+        modes->modes[m].y_mili      = qxl_modes[i].y_mili;
+        modes->modes[m].orientation = qxl_modes[i].orientation;
+
+        m++;
     }
-    if (maxfb < VGA_RAM_SIZE) // TODO - id != 0? (in original code from qxl.c)
-        maxfb = VGA_RAM_SIZE;
+    modes->n_modes     = m;
 
     ram_header_size    = ALIGN(sizeof(struct QXLRam), 4096);
-    surface0_area_size = ALIGN(maxfb, 4096);
-    num_pages          = VRAM_SIZE;
+    num_pages          = qxl->vram_size;
     num_pages         -= ram_header_size;
-    num_pages         -= surface0_area_size;
+    num_pages         -= qxl->surface0_size;
     num_pages          = num_pages / TARGET_PAGE_SIZE;
 
-    rom->draw_area_offset   = (0);
-    rom->surface0_area_size = (surface0_area_size);
-    rom->pages_offset       = (surface0_area_size);
-    rom->num_pages          = (num_pages);
-    rom->ram_header_offset  = (VRAM_SIZE - ram_header_size);
+    rom->draw_area_offset   = 0;
+    rom->surface0_area_size = qxl->surface0_size;
+    rom->pages_offset       = rom->surface0_area_size;
+    rom->num_pages          = num_pages;
+    rom->ram_header_offset  = qxl->vram_size - ram_header_size;
 
     qxl->shadow_rom = *qxl->rom;         // TODO - do we need this?
 }

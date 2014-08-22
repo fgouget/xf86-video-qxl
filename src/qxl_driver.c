@@ -146,6 +146,12 @@ const OptionInfoRec DefaultOptions[] =
       "SpiceVdagentUid",          OPTV_INTEGER,    {0}, FALSE},
     { OPTION_SPICE_VDAGENT_GID,
       "SpiceVdagentGid",          OPTV_INTEGER,    {0}, FALSE},
+    { OPTION_FRAME_BUFFER_SIZE,
+      "FrameBufferSize",          OPTV_INTEGER,    {DEFAULT_FRAME_BUFFER_SIZE}, FALSE},
+    { OPTION_SURFACE_BUFFER_SIZE,
+      "SurfaceBufferSize",        OPTV_INTEGER,    {DEFAULT_SURFACE_BUFFER_SIZE}, FALSE},
+    { OPTION_COMMAND_BUFFER_SIZE,
+      "CommandBufferSize",        OPTV_INTEGER,    {DEFAULT_COMMAND_BUFFER_SIZE}, FALSE},
 #endif
     
     { -1, NULL, OPTV_NONE, {0}, FALSE }
@@ -190,11 +196,9 @@ unmap_memory_helper (qxl_screen_t *qxl)
 static void
 map_memory_helper (qxl_screen_t *qxl)
 {
-    qxl->ram = calloc (RAM_SIZE, 1);
-    qxl->ram_size = RAM_SIZE;
+    qxl->ram = calloc (qxl->ram_size, 1);
     qxl->ram_physical = qxl->ram;
-    qxl->vram = calloc (VRAM_SIZE, 1);
-    qxl->vram_size = VRAM_SIZE;
+    qxl->vram = calloc (qxl->vram_size, 1);
     qxl->vram_physical = qxl->vram;
     qxl->rom = calloc (ROM_SIZE, 1);
     
@@ -1081,6 +1085,13 @@ qxl_pre_init (ScrnInfoPtr pScrn, int flags)
         strncpy(qxl->playback_fifo_dir, playback_fifo_dir, sizeof(qxl->playback_fifo_dir));
     else
         qxl->playback_fifo_dir[0] = '\0';
+
+    qxl->surface0_size =
+        get_int_option (qxl->options, OPTION_FRAME_BUFFER_SIZE, "QXL_FRAME_BUFFER_SIZE") << 20L;
+    qxl->vram_size =
+        get_int_option (qxl->options, OPTION_SURFACE_BUFFER_SIZE, "QXL_SURFACE_BUFFER_SIZE") << 20L;
+    qxl->ram_size =
+        get_int_option (qxl->options, OPTION_COMMAND_BUFFER_SIZE, "QXL_COMMAND_BUFFER_SIZE") << 20L;
 #endif
 
     if (!qxl_map_memory (qxl, scrnIndex))

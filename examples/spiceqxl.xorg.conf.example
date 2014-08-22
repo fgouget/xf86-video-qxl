@@ -96,6 +96,36 @@ Section "Device"
     # defaults to 4
     #Option "NumHeads" "4"
 
+    #--------------------------------------------------------------
+    # Buffer Size notes:
+    #  The following buffer sizes are used for Xspice only
+    #  If you are using the DFPS mode, surface ram is not used,
+    #  and you can set it to 1.
+    #  Otherwise, the surface buffer should be at least as large
+    #   as the frame buffer, and probably a multiple like 8.
+    #  The command buffer ram should also be substantially larger
+    #   than the frame buffer, and note that the frame buffer occupies
+    #   the front of the command buffer.  Hence, our default size
+    #   is a command buffer 7x the size of the frame buffer.
+    #  If you see 'Out of memory' errors in your xorg.log, you probably need
+    #   to increase the surface or command buffer sizes.
+    #--------------------------------------------------------------
+
+    # The amount of surface buffer ram, in megabytes, to allocate
+    # defaults to 128
+    #Option "SurfaceBufferSize" "128"
+
+    # The amount of command buffer ram, in megabytes, to allocate
+    # defaults to 128
+    #Option "CommandBufferSize" "128"
+
+    # The amount of frame buffer ram, in megabytes, to reserve
+    #  This is reserved out of the CommandBuffer RAM
+    #  This governs the maximum size the X screen can be;
+    #   4 Heads at 1920x1080 require 32M of RAM
+    # defaults to 16
+    #Option "FrameBufferSize" "16"
+
     # Set Spice Agent Mouse
     # defaults to false
     #Option "SpiceAgentMouse" "False"
