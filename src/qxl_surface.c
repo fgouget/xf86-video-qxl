@@ -290,10 +290,13 @@ upload_one_primary_region(qxl_screen_t *qxl, PixmapPtr pixmap, BoxPtr b)
     int stride;
     int bpp;
 
+    if (b->x1 >= qxl->virtual_x || b->y1 >= qxl->virtual_y)
+        return;
+
     rect.left = b->x1;
-    rect.right = b->x2;
+    rect.right = min(b->x2, qxl->virtual_x);
     rect.top = b->y1;
-    rect.bottom = b->y2;
+    rect.bottom = min(b->y2, qxl->virtual_y);
 
     drawable_bo = make_drawable (qxl, qxl->primary, QXL_DRAW_COPY, &rect);
     drawable = qxl->bo_funcs->bo_map(drawable_bo);
@@ -309,7 +312,7 @@ upload_one_primary_region(qxl_screen_t *qxl, PixmapPtr pixmap, BoxPtr b)
 
     fbGetPixmapBitsData(pixmap, data, stride, bpp);
     image_bo = qxl_image_create (
-	qxl, (const uint8_t *)data, b->x1, b->y1, b->x2 - b->x1, b->y2 - b->y1, stride * sizeof(*data),
+	qxl, (const uint8_t *)data, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, stride * sizeof(*data),
 	bpp == 24 ? 4 : bpp / 8, TRUE);
     qxl->bo_funcs->bo_output_bo_reloc(qxl, offsetof(QXLDrawable, u.copy.src_bitmap),
 				   drawable_bo, image_bo);

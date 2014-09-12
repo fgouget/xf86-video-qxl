@@ -62,6 +62,8 @@ hash_and_copy (const uint8_t *src, int src_stride,
 	const uint8_t *src_line = src + i * src_stride;
 	uint8_t *dest_line = dest + i * dest_stride;
 	int n_bytes = width * bytes_per_pixel;
+	if (n_bytes > src_stride)
+	    n_bytes = src_stride;
 
 	if (dest)
 	    memcpy (dest_line, src_line, n_bytes);
