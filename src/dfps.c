@@ -312,6 +312,17 @@ static void dfps_set_screen_pixmap (PixmapPtr pixmap)
     pixmap->drawable.pScreen->devPrivate = pixmap;
 }
 
+static void dfps_clear_pixmap(PixmapPtr pixmap, int w, int h)
+{
+    GCPtr pgc;
+    pgc = GetScratchGC(pixmap->drawable.depth, pixmap->drawable.pScreen);
+    if (pgc)
+    {
+        fbFill(&pixmap->drawable, pgc, 0, 0, w, h);
+        FreeScratchGC(pgc);
+    }
+}
+
 static PixmapPtr dfps_create_pixmap (ScreenPtr screen, int w, int h, int depth, unsigned usage)
 {
     PixmapPtr pixmap;
@@ -324,7 +335,10 @@ static PixmapPtr dfps_create_pixmap (ScreenPtr screen, int w, int h, int depth, 
 
     pixmap = fbCreatePixmap (screen, w, h, depth, usage);
     if (pixmap)
+    {
+        dfps_clear_pixmap(pixmap, w, h);
         dfps_set_info(pixmap, info);
+    }
     else
         free(info);
 
