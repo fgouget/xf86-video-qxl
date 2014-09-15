@@ -195,10 +195,10 @@ audio_thread_main (void *p)
     struct audio_data data;
     int freq = SPICE_INTERFACE_PLAYBACK_FREQ;
 
+    memset(&data, 0, sizeof(data));
     for (i = 0; i < MAX_FIFOS; ++i)
         data.fifo_fds[i] = -1;
 
-    data.valid_bytes = data.fed = 0;
 #if SPICE_INTERFACE_PLAYBACK_MAJOR > 1 || SPICE_INTERFACE_PLAYBACK_MINOR >= 3
     freq = spice_server_get_best_playback_rate(&qxl->playback_sin);
 #endif
