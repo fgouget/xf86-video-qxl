@@ -128,12 +128,29 @@ static Bool unaccel (void)
     return FALSE;
 }
 
+
+/* Establish a maximum number of disparate regions we'll track before we just
+   treat the entire bounding rectangle as having changed.
+
+   The number 20 seemed intuitive, and also produced the best results in
+   benchmarking x11perf -circle10 -repeat 1
+*/
+#define DFPS_MAX_UPDATE_REGIONS 20
+static void dfps_update_box(RegionPtr dest, int x_1, int x_2, int y_1, int y_2);
+
 static void dfps_update_region(RegionPtr dest, RegionPtr src)
 {
     Bool throwaway_bool;
 
     RegionAppend(dest, src);
     RegionValidate(dest, &throwaway_bool);
+    if (RegionNumRects(dest) > DFPS_MAX_UPDATE_REGIONS)
+    {
+        struct pixman_box16 box = * (RegionExtents(dest));
+        RegionUninit(dest);
+        RegionInit(dest, NULL, 0);
+        dfps_update_box(dest, box.x1, box.x2, box.y1, box.y2);
+    }
 }
 
 static void dfps_update_box(RegionPtr dest, int x_1, int x_2, int y_1, int y_2)
