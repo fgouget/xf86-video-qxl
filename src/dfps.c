@@ -128,6 +128,28 @@ static Bool unaccel (void)
     return FALSE;
 }
 
+static void dfps_update_region(RegionPtr dest, RegionPtr src)
+{
+    Bool throwaway_bool;
+
+    RegionAppend(dest, src);
+    RegionValidate(dest, &throwaway_bool);
+}
+
+static void dfps_update_box(RegionPtr dest, int x_1, int x_2, int y_1, int y_2)
+{
+    struct pixman_box16 box;
+    RegionPtr region;
+
+    box.x1 = x_1; box.x2 = x_2; box.y1 = y_1; box.y2 = y_2;
+    region = RegionCreate(&box, 1);
+
+    dfps_update_region(dest, region);
+
+    RegionUninit(region);
+    RegionDestroy(region);
+}
+
 static Bool dfps_prepare_solid (PixmapPtr pixmap, int alu, Pixel planemask, Pixel fg)
 {
     dfps_info_t *info;
@@ -152,9 +174,6 @@ static Bool dfps_prepare_solid (PixmapPtr pixmap, int alu, Pixel planemask, Pixe
 
 static void dfps_solid (PixmapPtr pixmap, int x_1, int y_1, int x_2, int y_2)
 {
-    struct pixman_box16 box;
-    RegionPtr region;
-    Bool throwaway_bool;
     dfps_info_t *info;
 
     if (!(info = dfps_get_info (pixmap)))
@@ -164,12 +183,7 @@ static void dfps_solid (PixmapPtr pixmap, int x_1, int y_1, int x_2, int y_2)
     fbFill(&pixmap->drawable, info->pgc, x_1, y_1, x_2 - x_1, y_2 - y_1);
 
     /* Track the updated region */
-    box.x1 = x_1; box.x2 = x_2; box.y1 = y_1; box.y2 = y_2;
-    region = RegionCreate(&box, 1);
-    RegionAppend(&info->updated_region, region);
-    RegionValidate(&info->updated_region, &throwaway_bool);
-    RegionUninit(region);
-    RegionDestroy(region);
+    dfps_update_box(&info->updated_region, x_1, x_2, y_1, y_2);
     return;
 }
 
@@ -212,10 +226,6 @@ static void dfps_copy (PixmapPtr dest,
           int dest_x1, int dest_y1,
           int width, int height)
 {
-    struct pixman_box16 box;
-    RegionPtr region;
-    Bool throwaway_bool;
-
     dfps_info_t *info;
 
     if (!(info = dfps_get_info (dest)))
@@ -225,12 +235,7 @@ static void dfps_copy (PixmapPtr dest,
     fbCopyArea(&info->copy_src->drawable, &dest->drawable, info->pgc, src_x1, src_y1, width, height, dest_x1, dest_y1);
 
     /* Update the tracking region */
-    box.x1 = dest_x1; box.x2 = dest_x1 + width; box.y1 = dest_y1; box.y2 = dest_y1 + height;
-    region = RegionCreate(&box, 1);
-    RegionAppend(&info->updated_region, region);
-    RegionValidate(&info->updated_region, &throwaway_bool);
-    RegionUninit(region);
-    RegionDestroy(region);
+    dfps_update_box(&info->updated_region, dest_x1, dest_x1 + width, dest_y1, dest_y1 + height);
 }
 
 static void dfps_done_copy (PixmapPtr dest)
@@ -247,20 +252,12 @@ static void dfps_done_copy (PixmapPtr dest)
 static Bool dfps_put_image (PixmapPtr dest, int x, int y, int w, int h,
                char *src, int src_pitch)
 {
-    struct pixman_box16 box;
-    RegionPtr region;
-    Bool throwaway_bool;
     dfps_info_t *info;
 
     if (!(info = dfps_get_info (dest)))
         return FALSE;
 
-    box.x1 = x; box.x2 = x + w; box.y1 = y; box.y2 = y + h;
-    region = RegionCreate(&box, 1);
-    RegionAppend(&info->updated_region, region);
-    RegionValidate(&info->updated_region, &throwaway_bool);
-    RegionUninit(region);
-    RegionDestroy(region);
+    dfps_update_box(&info->updated_region, x, x + w, y, y + h);
 
     /* We can avoid doing the put image ourselves, as the uxa driver
        will fall back and do it for us if we return false */
@@ -274,12 +271,11 @@ static Bool dfps_prepare_access (PixmapPtr pixmap, RegionPtr region, uxa_access_
     if (requested_access == UXA_ACCESS_RW)
     {
         dfps_info_t *info;
-        Bool throwaway_bool;
 
         if (!(info = dfps_get_info (pixmap)))
             return FALSE;
-        RegionAppend(&info->updated_region, region);
-        RegionValidate(&info->updated_region, &throwaway_bool);
+
+        dfps_update_region(&info->updated_region, region);
     }
     return TRUE;
 }
