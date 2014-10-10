@@ -43,8 +43,11 @@ qxl_wait_for_io_command (qxl_screen_t *qxl)
 
     ram_header = (void *)((unsigned long)qxl->ram + qxl->rom->ram_header_offset);
 
-    while (!(ram_header->int_pending & QXL_INTERRUPT_IO_CMD))
+    while (!(ram_header->int_pending &
+             (QXL_INTERRUPT_IO_CMD | QXL_INTERRUPT_ERROR)))
 	usleep (1);
+
+    assert(!(ram_header->int_pending & QXL_INTERRUPT_ERROR));
 
     ram_header->int_pending &= ~QXL_INTERRUPT_IO_CMD;
 }
