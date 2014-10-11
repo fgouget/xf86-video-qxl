@@ -140,6 +140,11 @@ download_box_no_update (qxl_surface_t *surface, int x1, int y1, int x2, int y2)
 void
 qxl_download_box (qxl_surface_t *surface, int x1, int y1, int x2, int y2)
 {
+    assert (x2 >= x1 && y2 >= y1);
+
+    if (x1 == x2 || y1 == y2)
+        return;
+
     surface->qxl->bo_funcs->update_area(surface, x1, y1, x2, y2);
 
     download_box_no_update(surface, x1, y1, x2, y2);
