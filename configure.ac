@@ -126,6 +126,8 @@ AC_ARG_ENABLE(xspice,
 ])
 
 if test "x$enable_xspice" = "xyes"; then
+    AC_CHECK_HEADERS(sys/inotify.h)
+    AC_CHECK_FUNCS(inotify_init1)
     PKG_CHECK_MODULES([SPICE], [spice-server >= 0.6.3],
     [
         AC_SUBST(SPICE_CFLAGS)

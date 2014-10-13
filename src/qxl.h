@@ -334,8 +334,6 @@ struct _qxl_screen_t
     /* XSpice specific, dragged from the Device */
     QXLReleaseInfo     *last_release;
 
-    pthread_t audio_thread;
-
     uint32_t           cmdflags;
     uint32_t           oom_running;
     uint32_t           num_free_res; /* is having a release ring effective
@@ -353,6 +351,7 @@ struct _qxl_screen_t
     } guest_primary;
 
     char playback_fifo_dir[PATH_MAX];
+    void *playback_opaque;
 #endif /* XSPICE */
 
     uint32_t deferred_fps;

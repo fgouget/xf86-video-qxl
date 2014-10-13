@@ -20,6 +20,10 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+/* XSpice based audio feed; reads from files (presumably fifos) in a configured directory,
+   and mixes their raw data on to the spice playback channel.  */
+
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -32,283 +36,379 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <dirent.h>
+#if defined(HAVE_SYS_INOTIFY_H)
+#include <sys/inotify.h>
+#endif
 
-#define BUFFER_PERIODS 10
-#define PERIOD_MS 10
+/* mplayer + pulse will write data to the fifo as fast as we can read it.
+       So we need to pace both how quickly we consume the data and how quickly
+       we feed the data in to Spice.  We will read ahead (up to READ_BUFFER_PERIODS),
+       and feed ahead into the Spice server (up to FEED_BUFFER_PERIODS).
+*/
+
+#define PERIOD_MS            10
+#define READ_BUFFER_PERIODS  2
+#define FEED_BUFFER_PERIODS  8
+
 #define MAX_FIFOS 16
 
-struct audio_data {
-    int fifo_fds[MAX_FIFOS];
-    ino_t inodes[MAX_FIFOS];
-    uint32_t valid_bytes, write_offs;
-    char *buffer, *spice_buffer;
-    int period_frames;
-    uint32_t spice_write_offs, spice_buffer_bytes;
-    uint32_t frame_bytes, period_bytes, fed, buffer_bytes;
-    struct timeval last_read_time;
+struct fifo_data {
+    char *buffer;
+    int   size;
+    int   len;
+    int   add_to;
+    int   fd;
+    SpiceWatch *watch;
 };
 
-static ssize_t
-read_from_fifos (struct audio_data *data)
+struct audio_data {
+    struct fifo_data fifos[MAX_FIFOS];
+    uint32_t *spice_buffer;
+    int spice_buffer_bytes;
+    int period_bytes;
+    struct timeval fed_through_time;
+    int remainder;
+    int fifo_count;
+    SpiceTimer *wall_timer;
+    int wall_timer_live;
+    int dir_watch;
+    int fifo_dir_watch;
+    SpiceWatch *fifo_dir_qxl_watch;
+};
+
+/* We maintain a ring buffer for each file we are reading from;
+   these helper functions facilitate adding data to the buffer,
+   and removing it.  */
+static inline void fifo_data_added(struct fifo_data *f, int n)
 {
-    size_t to_read_bytes = min(data->period_bytes, data->buffer_bytes - data->write_offs);
-    int i;
-    ssize_t max_readed = 0;
-    int16_t *out_buf = (int16_t*)(data->buffer + data->write_offs), *buf;
-
-    buf = malloc(to_read_bytes);
-    if (!buf)
-    {
-        ErrorF("playback: malloc failed: %s\n", strerror(errno));
-        return 0;
-    }
-
-    memset(out_buf, 0, to_read_bytes);
-
-    for (i = 0; i < MAX_FIFOS; ++i)
-    {
-        unsigned int s;
-        ssize_t readed;
-
-        if (data->fifo_fds[i] < 0)
-            continue;
-
-        readed = read(data->fifo_fds[i], buf, to_read_bytes);
-        if (readed < 0)
-        {
-            if (errno != EAGAIN && errno != EINTR)
-                ErrorF("playback: read from FIFO %d failed: %s\n", data->fifo_fds[i], strerror(errno));
-            continue;
-        }
-
-        if (readed == 0)
-        {
-            ErrorF("playback: FIFO %d gave EOF\n", data->fifo_fds[i]);
-            close(data->fifo_fds[i]);
-            data->fifo_fds[i] = -1;
-            data->inodes[i] = 0;
-            continue;
-        }
-
-        if (readed > max_readed)
-            max_readed = readed;
-
-        for (s = 0; s < readed / sizeof(int16_t); ++s)
-        {
-            /* FIXME: Ehhh, this'd be better as floats. With this algorithm,
-             * samples mixed after being clipped will have undue weight. But
-             * if we're clipping, then we're distorted anyway, so whatever. */
-            if (out_buf[s] + buf[s] > INT16_MAX)
-                out_buf[s] = INT16_MAX;
-            else if (out_buf[s] + buf[s] < -INT16_MAX)
-                out_buf[s] = -INT16_MAX;
-            else
-                out_buf[s] += buf[s];
-        }
-    }
-
-    free(buf);
-
-    if (!max_readed)
-        return 0;
-
-    data->valid_bytes = min(data->valid_bytes + max_readed,
-            data->buffer_bytes);
-
-    data->write_offs += max_readed;
-    data->write_offs %= data->buffer_bytes;
-
-    ++data->fed;
-
-    return max_readed;
+    f->add_to = (f->add_to + n) % f->size;
+    f->len += n;
 }
 
-static int
-scan_fifos (struct audio_data *data, const char *dirname)
+static inline int fifo_read(struct fifo_data *f)
 {
-    DIR *dir;
-    struct dirent *ent;
-    int i;
+    int rc;
+    int len = min(f->size - f->len, f->size - f->add_to);
+    rc = read(f->fd, f->buffer + f->add_to, len);
+    if (rc > 0)
+        fifo_data_added(f, rc);
 
-    dir = opendir(dirname);
-    if (!dir)
-    {
-        ErrorF("playback: failed to open FIFO directory '%s': %s\n", dirname, strerror(errno));
+    if (rc > 0 && rc == len && f->size - f->len > 0) {
+        rc = read(f->fd, f->buffer + f->add_to, f->size - f->len);
+        if (rc > 0)
+            fifo_data_added(f, rc);
+    }
+
+    return rc;
+}
+
+static inline void fifo_remove_data(struct fifo_data *f, unsigned char *dest, int len)
+{
+    int remove_from = f->add_to >= f->len ? f->add_to - f->len : f->add_to + f->size - f->len;
+    int remain = f->size - remove_from;
+
+    if (remain < len) {
+        memcpy(dest, f->buffer + remove_from, remain);
+        dest += remain;
+        len -= remain;
+        f->len -= remain;
+        remove_from = 0;
+    }
+
+    memcpy(dest, f->buffer + remove_from, len);
+    f->len -= len;
+}
+
+static void mix_in_one_fifo(struct fifo_data *f, int16_t *out, int len)
+{
+    int s;
+    int16_t *in;
+
+    if (len > f->len)
+        len = f->len;
+
+    in = calloc(1, len);
+
+    fifo_remove_data(f, (unsigned char *) in, len);
+
+    for (s = 0; s < (len / sizeof(int16_t)); s++) {
+        /* FIXME: Ehhh, this'd be better as floats. With this algorithm,
+         * samples mixed after being clipped will have undue weight. But
+         * if we're clipping, then we're distorted anyway, so whatever. */
+        if (out[s] + in[s] > INT16_MAX)
+            out[s] = INT16_MAX;
+        else if (out[s] + in[s] < -INT16_MAX)
+            out[s] = -INT16_MAX;
+        else
+            out[s] += in[s];
+    }
+
+    free(in);
+}
+
+static void mix_in_fifos(qxl_screen_t *qxl)
+{
+    int i;
+    struct audio_data *data = qxl->playback_opaque;
+    struct fifo_data *f;
+
+    memset(data->spice_buffer, 0, data->spice_buffer_bytes);
+
+    if (data->fifo_count == 0)
+        return;
+
+    /* First fifo can just be copied */
+    f = &data->fifos[0];
+    fifo_remove_data(f, (unsigned char *) data->spice_buffer, min(data->spice_buffer_bytes, f->len));
+
+    /* Extra fifos need to be mixed in */
+    for (i = 1; i < data->fifo_count; i++) {
+        f = &data->fifos[i];
+        if (f->len > 0)
+            mix_in_one_fifo(f, (int16_t *) data->spice_buffer, data->spice_buffer_bytes);
+    }
+}
+
+static int can_feed(struct audio_data *data)
+{
+    struct timeval end, diff;
+
+    gettimeofday(&end, NULL);
+
+    if (end.tv_sec > data->fed_through_time.tv_sec ||
+        (end.tv_sec == data->fed_through_time.tv_sec &&
+         end.tv_usec >= data->fed_through_time.tv_usec)) {
+        data->fed_through_time.tv_sec = data->fed_through_time.tv_usec = 0;
+        data->remainder = 0;
         return 1;
     }
 
-    while ((ent = readdir(dir)))
-    {
-        char path[PATH_MAX];
-
-        if (ent->d_name[0] == '.')
-            /* skip dot-files */
-            continue;
-
-        for (i = 0; i < MAX_FIFOS; ++i)
-            if (ent->d_ino == data->inodes[i])
-                break;
-        if (i < MAX_FIFOS)
-            /* file already open */
-            continue;
-
-        for (i = 0; i < MAX_FIFOS; ++i)
-            if (data->fifo_fds[i] < 0)
-                break;
-        if (i == MAX_FIFOS)
-        {
-            static int once = 0;
-            if (!once)
-            {
-                ErrorF("playback: Too many FIFOs already open\n");
-                ++once;
-            }
-            closedir(dir);
-            return 0;
-        }
-
-        if (snprintf(path, sizeof(path), "%s/%s", dirname, ent->d_name) >= sizeof(path)) {
-            ErrorF("playback: FIFO filename is too long - truncated into %s", path);
-        }
-
-        data->fifo_fds[i] = open(path, O_RDONLY | O_RSYNC | O_NONBLOCK);
-        if (data->fifo_fds[i] < 0)
-        {
-            ErrorF("playback: open FIFO '%s' failed: %s\n", path, strerror(errno));
-            continue;
-        }
-        ErrorF("playback: opened FIFO '%s' as %d\n", path, data->fifo_fds[i]);
-
-        data->inodes[i] = ent->d_ino;
-    }
-
-    closedir(dir);
+    timersub(&data->fed_through_time, &end, &diff);
+    if (diff.tv_sec == 0 && diff.tv_usec < PERIOD_MS * 1000 * FEED_BUFFER_PERIODS)
+        return 1;
 
     return 0;
 }
 
-static void *
-audio_thread_main (void *p)
+static void did_feed(struct audio_data *data, int len)
 {
-    qxl_screen_t *qxl = p;
+    struct timeval diff;
+
+    if (data->fed_through_time.tv_sec == 0 && data->fed_through_time.tv_usec == 0)
+        gettimeofday(&data->fed_through_time, NULL);
+
+    diff.tv_sec = 0;
+    diff.tv_usec = (data->remainder + (len * PERIOD_MS * 1000)) / data->period_bytes;
+    data->remainder = (data->remainder + (len * PERIOD_MS * 1000)) % data->period_bytes;
+
+    timeradd(&data->fed_through_time, &diff, &data->fed_through_time);
+}
+
+static void condense_fifos(struct audio_data *data)
+{
     int i;
-    struct audio_data data;
-    int freq = SPICE_INTERFACE_PLAYBACK_FREQ;
+    struct fifo_data tmp;
 
-    memset(&data, 0, sizeof(data));
-    for (i = 0; i < MAX_FIFOS; ++i)
-        data.fifo_fds[i] = -1;
+    for (i = 0; i < data->fifo_count; i++) {
+        struct fifo_data *f = &data->fifos[i];
+        if (f->fd == -1 && f->len == 0) {
+            if ((i + 1) < data->fifo_count) {
+                tmp = *f;
+                *f = data->fifos[data->fifo_count - 1];
+                data->fifos[data->fifo_count - 1] = tmp;
+            }
+            data->fifo_count--;
+            i--;
+        }
+    }
+}
 
-#if SPICE_INTERFACE_PLAYBACK_MAJOR > 1 || SPICE_INTERFACE_PLAYBACK_MINOR >= 3
-    freq = spice_server_get_best_playback_rate(&qxl->playback_sin);
-#endif
-    data.period_frames = freq * PERIOD_MS / 1000;
+static void watch_or_wait(qxl_screen_t *qxl);
+static void process_fifos(qxl_screen_t *qxl, struct audio_data *data, int maxlen)
+{
+    while (maxlen > 0) {
+        if (! data->spice_buffer) {
+            uint32_t chunk_frames;
+            spice_server_playback_get_buffer(&qxl->playback_sin, &data->spice_buffer, &chunk_frames);
+            data->spice_buffer_bytes = chunk_frames * sizeof(int16_t) * SPICE_INTERFACE_PLAYBACK_CHAN;
+        }
 
+        if (! data->spice_buffer)
+            break;
 
-    data.frame_bytes = sizeof(int16_t) * SPICE_INTERFACE_PLAYBACK_CHAN;
+        if (! can_feed(data))
+            break;
 
-    data.period_bytes = data.period_frames * data.frame_bytes;
-    data.buffer_bytes = data.period_bytes * BUFFER_PERIODS;
-    data.buffer = malloc(data.buffer_bytes);
-    memset(data.buffer, 0, data.buffer_bytes);
+        mix_in_fifos(qxl);
 
-    spice_server_playback_start(&qxl->playback_sin);
+        did_feed(data, data->spice_buffer_bytes);
+        maxlen -= data->spice_buffer_bytes;
 
-    gettimeofday(&data.last_read_time, NULL);
+        spice_server_playback_put_samples(&qxl->playback_sin, data->spice_buffer);
+        data->spice_buffer = NULL;
+    }
 
-    while (1)
-    {
-        struct timeval end, diff, period_tv;
+    watch_or_wait(qxl);
+}
 
-        if (scan_fifos(&data, qxl->playback_fifo_dir))
-            goto cleanup;
+static void read_from_fifos(int fd, int event, void *opaque)
+{
+    qxl_screen_t *qxl = opaque;
+    struct audio_data *data = qxl->playback_opaque;
+    int i;
+    int maxlen = 0;
+    for (i = 0; i < data->fifo_count; i++) {
+        struct fifo_data *f = &data->fifos[i];
 
-        while (data.fed < BUFFER_PERIODS)
-        {
-            if (!read_from_fifos(&data))
-                break;
+        if (f->size - f->len > 0 && f->fd >= 0) {
+            int rc;
 
-            while (data.valid_bytes)
-            {
-                int to_copy_bytes;
-                uint32_t read_offs;
-
-                if (!data.spice_buffer)
-                {
-                    uint32_t chunk_frames;
-                    spice_server_playback_get_buffer(&qxl->playback_sin, (uint32_t**)&data.spice_buffer, &chunk_frames);
-                    data.spice_buffer_bytes = chunk_frames * data.frame_bytes;
-                }
-                if (!data.spice_buffer)
-                    break;
-
-                if (data.valid_bytes > data.write_offs)
-                {
-                    read_offs = data.buffer_bytes + data.write_offs - data.valid_bytes;
-                    to_copy_bytes = min(data.buffer_bytes - read_offs,
-                            data.spice_buffer_bytes - data.spice_write_offs);
-                }
+            rc = fifo_read(f);
+            if (rc == -1 && (errno == EAGAIN || errno == EINTR))
+                /* no new data to read */;
+            else if (rc <= 0) {
+                if (rc == 0)
+                    ErrorF("fifo %d closed\n", f->fd);
                 else
-                {
-                    read_offs = data.write_offs - data.valid_bytes;
-                    to_copy_bytes = min(data.valid_bytes,
-                            data.spice_buffer_bytes - data.spice_write_offs);
-                }
+                    ErrorF("fifo %d error %d: %s\n", f->fd, errno, strerror(errno));
 
-                memcpy(data.spice_buffer + data.spice_write_offs,
-                        data.buffer + read_offs, to_copy_bytes);
+                if (f->watch)
+                    qxl->core->watch_remove(f->watch);
+                f->watch = NULL;
+                close(f->fd);
+                f->fd = -1;
+            }
 
-                data.valid_bytes -= to_copy_bytes;
-
-                data.spice_write_offs += to_copy_bytes;
-
-                if (data.spice_write_offs >= data.spice_buffer_bytes)
-                {
-                    spice_server_playback_put_samples(&qxl->playback_sin, (uint32_t*)data.spice_buffer);
-                    data.spice_buffer = NULL;
-                    data.spice_buffer_bytes = data.spice_write_offs = 0;
-                }
+            if (f->size == f->len) {
+                if (f->watch)
+                    qxl->core->watch_remove(f->watch);
+                f->watch = NULL;
             }
         }
 
-        period_tv.tv_sec = 0;
-        period_tv.tv_usec = PERIOD_MS * 1000;
+        if (f->len > maxlen)
+            maxlen = f->len;
+    }
 
-        usleep(period_tv.tv_usec);
+    process_fifos(qxl, data, maxlen);
+}
 
-        gettimeofday(&end, NULL);
+static void start_watching(qxl_screen_t *qxl)
+{
+    struct audio_data *data = qxl->playback_opaque;
+    int i;
 
-        timersub(&end, &data.last_read_time, &diff);
+    for (i = 0; i < data->fifo_count; i++) {
+        struct fifo_data *f = &data->fifos[i];
+        if (f->watch || f->size == f->len || f->fd == -1)
+            continue;
 
-        while (data.fed &&
-                (diff.tv_sec > 0 || diff.tv_usec >= period_tv.tv_usec))
-        {
-            timersub(&diff, &period_tv, &diff);
+        f->watch = qxl->core->watch_add(f->fd, SPICE_WATCH_EVENT_READ, read_from_fifos, qxl);
+    }
+}
 
-            --data.fed;
+static void watch_or_wait(qxl_screen_t *qxl)
+{
+    struct audio_data *data = qxl->playback_opaque;
 
-            timeradd(&data.last_read_time, &period_tv, &data.last_read_time);
+    if (! can_feed(data)) {
+        if (! data->wall_timer_live) {
+            qxl->core->timer_start(data->wall_timer, PERIOD_MS);
+            data->wall_timer_live++;
+        }
+    }
+    else {
+        start_watching(qxl);
+        if (data->wall_timer_live)
+            qxl->core->timer_cancel(data->wall_timer);
+        data->wall_timer_live = 0;
+    }
+}
+
+static void wall_ticker(void *opaque)
+{
+    qxl_screen_t *qxl = opaque;
+    struct audio_data *data = qxl->playback_opaque;
+
+    data->wall_timer_live = 0;
+
+    condense_fifos(data);
+
+    read_from_fifos(-1, 0, qxl);
+}
+
+#if defined(HAVE_SYS_INOTIFY_H)
+static void handle_one_change(qxl_screen_t *qxl, struct inotify_event *e)
+{
+
+    if (e->mask & (IN_CREATE | IN_MOVED_TO)) {
+        struct audio_data *data = qxl->playback_opaque;
+        struct fifo_data *f;
+        char *fname;
+
+        condense_fifos(data);
+
+        f = &data->fifos[data->fifo_count];
+
+        if (data->fifo_count == MAX_FIFOS) {
+            static int once = 0;
+            if (!once) {
+                ErrorF("playback: Too many FIFOs already open\n");
+                ++once;
+            }
+            return;
         }
 
-        if (!data.fed)
-            data.last_read_time = end;
+        fname = malloc(strlen(e->name) + strlen(qxl->playback_fifo_dir) + 1 + 1);
+        strcpy(fname, qxl->playback_fifo_dir);
+        strcat(fname, "/");
+        strcat(fname, e->name);
+
+        f->fd = open(fname, O_RDONLY | O_RSYNC | O_NONBLOCK);
+        free(fname);
+        if (f->fd < 0) {
+            ErrorF("playback: open FIFO '%s' failed: %s\n", e->name, strerror(errno));
+            return;
+        }
+
+        ErrorF("playback: opened FIFO '%s' as %d:%d\n", e->name, data->fifo_count, f->fd);
+
+        data->fifo_count++;
+
+        f->watch = qxl->core->watch_add(f->fd, SPICE_WATCH_EVENT_READ, read_from_fifos, qxl);
     }
-
-cleanup:
-    if (data.spice_buffer)
-    {
-        memset(data.spice_buffer, 0, data.spice_buffer_bytes - data.spice_write_offs);
-        spice_server_playback_put_samples(&qxl->playback_sin, (uint32_t*)data.spice_buffer);
-        data.spice_buffer = NULL;
-        data.spice_buffer_bytes = data.spice_write_offs = 0;
-    }
-
-    free(data.buffer);
-
-    spice_server_playback_stop(&qxl->playback_sin);
-
-    return NULL;
 }
+
+static void playback_dir_changed(int fd, int event, void *opaque)
+{
+    qxl_screen_t *qxl = opaque;
+    static unsigned char buf[sizeof(struct inotify_event) + NAME_MAX + 1];
+    static int index = 0;
+    struct inotify_event *e;
+    int rc;
+
+    do {
+        rc = read(fd, buf + index, sizeof(buf) - index);
+        if (rc > 0) {
+            index += rc;
+            if (index >= sizeof(*e)) {
+                int len;
+                e = (struct inotify_event *) buf;
+                len = sizeof(*e) + e->len;
+                if (index >= len) {
+                    handle_one_change(qxl, e);
+                    if (index > len)
+                        memmove(buf, buf + index, index - len);
+                    index -= len;
+                }
+            }
+        }
+    }
+    while (rc > 0);
+}
+#endif
+
+
 
 static const SpicePlaybackInterface playback_sif = {
     {
@@ -319,21 +419,51 @@ static const SpicePlaybackInterface playback_sif = {
     }
 };
 
+static void audio_initialize (qxl_screen_t *qxl)
+{
+    int i;
+    struct audio_data *data = qxl->playback_opaque;
+    int freq = SPICE_INTERFACE_PLAYBACK_FREQ;
+    int period_frames;
+    int frame_bytes;
+
+#if SPICE_INTERFACE_PLAYBACK_MAJOR > 1 || SPICE_INTERFACE_PLAYBACK_MINOR >= 3
+    freq = spice_server_get_best_playback_rate(&qxl->playback_sin);
+#endif
+
+    period_frames = freq * PERIOD_MS / 1000;
+    frame_bytes = sizeof(int16_t) * SPICE_INTERFACE_PLAYBACK_CHAN;
+    data->period_bytes = period_frames * frame_bytes;
+
+    for (i = 0; i < MAX_FIFOS; ++i) {
+        data->fifos[i].fd = -1;
+        data->fifos[i].size = data->period_bytes * READ_BUFFER_PERIODS;
+        data->fifos[i].buffer = calloc(1, data->fifos[i].size);
+    }
+
+    spice_server_playback_start(&qxl->playback_sin);
+}
+
+
 int
 qxl_add_spice_playback_interface (qxl_screen_t *qxl)
 {
     int ret;
+    struct audio_data *data = calloc(1, sizeof(*data));
 
-    if (qxl->playback_fifo_dir[0] == 0)
-    {
+#if defined(HAVE_SYS_INOTIFY_H) && defined(HAVE_INOTIFY_INIT1)
+    if (qxl->playback_fifo_dir[0] == 0) {
         ErrorF("playback: no audio FIFO directory, audio is disabled\n");
+        free(data);
         return 0;
     }
 
     qxl->playback_sin.base.sif = &playback_sif.base;
     ret = spice_server_add_interface(qxl->spice_server, &qxl->playback_sin.base);
-    if (ret < 0)
+    if (ret < 0) {
+        free(data);
         return errno;
+    }
 
 #if SPICE_INTERFACE_PLAYBACK_MAJOR > 1 || SPICE_INTERFACE_PLAYBACK_MINOR >= 3
     spice_server_set_playback_rate(&qxl->playback_sin,
@@ -341,14 +471,33 @@ qxl_add_spice_playback_interface (qxl_screen_t *qxl)
 #else
     /* disable CELT */
     ret = spice_server_set_playback_compression(qxl->spice_server, 0);
-    if (ret < 0)
+    if (ret < 0) {
+        free(data);
         return errno;
-
+    }
 #endif
 
-    ret = pthread_create(&qxl->audio_thread, NULL, &audio_thread_main, qxl);
-    if (ret < 0)
-        return errno;
 
+    qxl->playback_opaque = data;
+    audio_initialize(qxl);
+
+    data->wall_timer = qxl->core->timer_add(wall_ticker, qxl);
+
+    data->dir_watch = inotify_init1(IN_NONBLOCK);
+    data->fifo_dir_watch = -1;
+    if (data->dir_watch >= 0)
+        data->fifo_dir_watch = inotify_add_watch(data->dir_watch, qxl->playback_fifo_dir, IN_CREATE | IN_MOVE);
+
+    if (data->fifo_dir_watch == -1) {
+        ErrorF("Error %s(%d) watching the fifo dir\n", strerror(errno), errno);
+        return errno;
+    }
+
+    data->fifo_dir_qxl_watch = qxl->core->watch_add(data->dir_watch,
+            SPICE_WATCH_EVENT_READ, playback_dir_changed, qxl);
+
+#else
+    ErrorF("inotify not available; audio disabled.\n");
+#endif
     return 0;
 }
