@@ -197,9 +197,6 @@ drmmode_set_mode_major(xf86CrtcPtr crtc, DisplayModePtr mode,
 			output_count++;
 		}
 
-		if (!xf86CrtcRotate(crtc)) {
-			goto done;
-		}
 #if XORG_VERSION_CURRENT >= XORG_VERSION_NUMERIC(1,7,0,0,0)
 		crtc->funcs->gamma_set(crtc, crtc->gamma_red, crtc->gamma_green,
 				       crtc->gamma_blue, crtc->gamma_size);
@@ -354,6 +351,7 @@ drmmode_crtc_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, int num)
 	crtc = xf86CrtcCreate(pScrn, &drmmode_crtc_funcs);
 	if (crtc == NULL)
 		return;
+	crtc->driverIsPerformingTransform = FALSE;
 
 	drmmode_crtc = xnfcalloc(sizeof(drmmode_crtc_private_rec), 1);
 	drmmode_crtc->mode_crtc = drmModeGetCrtc(drmmode->fd, drmmode->mode_res->crtcs[num]);
