@@ -132,6 +132,7 @@ drmmode_set_mode_major(xf86CrtcPtr crtc, DisplayModePtr mode,
 		     Rotation rotation, int x, int y)
 {
 	ScrnInfoPtr pScrn = crtc->scrn;
+	CursorPtr cursor;
 	xf86CrtcConfigPtr   xf86_config = XF86_CRTC_CONFIG_PTR(crtc->scrn);
 	drmmode_crtc_private_ptr drmmode_crtc = crtc->driver_private;
 	drmmode_ptr drmmode = drmmode_crtc->drmmode;
@@ -250,7 +251,7 @@ done:
 		crtc->active = TRUE;
 #endif
 
-        CursorPtr cursor = xf86_config->cursor;
+        cursor = xf86_config->cursor;
         if (cursor)
             drmmode_show_cursor(crtc);
 
