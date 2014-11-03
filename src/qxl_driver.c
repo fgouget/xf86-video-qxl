@@ -653,7 +653,10 @@ spiceqxl_screen_init (ScrnInfoPtr pScrn, qxl_screen_t *qxl)
 	qxl->spice_server = xspice_get_spice_server ();
 	xspice_set_spice_server_options (qxl->options);
 	qxl->core = basic_event_loop_init ();
-	spice_server_init (qxl->spice_server, qxl->core);
+	if (spice_server_init (qxl->spice_server, qxl->core) < 0) {
+            ErrorF ("failed to initialize server\n");
+            abort ();
+        }
 	qxl_add_spice_display_interface (qxl);
 	qxl_add_spice_playback_interface (qxl);
 	spiceqxl_vdagent_init (qxl);
