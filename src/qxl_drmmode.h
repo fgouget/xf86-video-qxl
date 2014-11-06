@@ -69,6 +69,7 @@ typedef struct {
     uint64_t value;
     int num_atoms; /* if range prop, num_atoms == 1; if enum prop, num_atoms == num_enums + 1 */
     Atom *atoms;
+    int index; /* index within the kernel-size property array */
 } drmmode_prop_rec, *drmmode_prop_ptr;
 
 typedef struct {
