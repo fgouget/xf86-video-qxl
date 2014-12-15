@@ -157,6 +157,7 @@ enum {
     OPTION_FRAME_BUFFER_SIZE,
     OPTION_SURFACE_BUFFER_SIZE,
     OPTION_COMMAND_BUFFER_SIZE,
+    OPTION_SPICE_SMARTCARD_FILE,
 #endif
     OPTION_COUNT,
 };
@@ -352,6 +353,7 @@ struct _qxl_screen_t
 
     char playback_fifo_dir[PATH_MAX];
     void *playback_opaque;
+    char smartcard_file[PATH_MAX];
 #endif /* XSPICE */
 
     uint32_t deferred_fps;

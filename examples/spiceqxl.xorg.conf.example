@@ -143,6 +143,9 @@ Section "Device"
     #  to the client.   Default is no mixing.
     #Option "SpicePlaybackFIFODir"  "/tmp/"
 
+    # A unix domain name for a unix domain socket
+    #  to communicate with a spiceccid smartcard driver
+    #Option "SpiceSmartCardFile"  "/tmp/spice.pcsc.comm"
 EndSection
 
 Section "InputDevice"

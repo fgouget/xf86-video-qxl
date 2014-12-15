@@ -55,6 +55,7 @@
 #include "spiceqxl_io_port.h"
 #include "spiceqxl_spice_server.h"
 #include "spiceqxl_audio.h"
+#include "spiceqxl_smartcard.h"
 #include "spiceqxl_vdagent.h"
 #endif /* XSPICE */
 
@@ -152,8 +153,10 @@ const OptionInfoRec DefaultOptions[] =
       "SurfaceBufferSize",        OPTV_INTEGER,    {DEFAULT_SURFACE_BUFFER_SIZE}, FALSE},
     { OPTION_COMMAND_BUFFER_SIZE,
       "CommandBufferSize",        OPTV_INTEGER,    {DEFAULT_COMMAND_BUFFER_SIZE}, FALSE},
+    { OPTION_SPICE_SMARTCARD_FILE,
+      "SpiceSmartcardFile",       OPTV_STRING,    {0}, FALSE},
 #endif
-    
+
     { -1, NULL, OPTV_NONE, {0}, FALSE }
 };
 
@@ -659,6 +662,7 @@ spiceqxl_screen_init (ScrnInfoPtr pScrn, qxl_screen_t *qxl)
         }
 	qxl_add_spice_display_interface (qxl);
 	qxl_add_spice_playback_interface (qxl);
+	qxl_add_spice_smartcard_interface (qxl);
 	spiceqxl_vdagent_init (qxl);
     }
     else
@@ -1034,6 +1038,7 @@ qxl_pre_init (ScrnInfoPtr pScrn, int flags)
     unsigned int max_x, max_y;
 #ifdef XSPICE
     const char *playback_fifo_dir;
+    const char *smartcard_file;
 #endif
 
     /* In X server 1.7.5, Xorg -configure will cause this
@@ -1088,6 +1093,13 @@ qxl_pre_init (ScrnInfoPtr pScrn, int flags)
         strncpy(qxl->playback_fifo_dir, playback_fifo_dir, sizeof(qxl->playback_fifo_dir));
     else
         qxl->playback_fifo_dir[0] = '\0';
+
+    smartcard_file = get_str_option(qxl->options, OPTION_SPICE_SMARTCARD_FILE,
+               "XSPICE_SMARTCARD_FILE");
+    if (smartcard_file)
+        strncpy(qxl->smartcard_file, smartcard_file, sizeof(qxl->smartcard_file));
+    else
+        qxl->smartcard_file[0] = '\0';
 
     qxl->surface0_size =
         get_int_option (qxl->options, OPTION_FRAME_BUFFER_SIZE, "QXL_FRAME_BUFFER_SIZE") << 20L;

@@ -25,7 +25,7 @@
 # _ladir passes a dummy rpath to libtool so the thing will actually link
 # TODO: -nostdlib/-Bstatic/-lgcc platform magic, not installing the .a, etc.
 
-SUBDIRS=uxa
+SUBDIRS=uxa spiceccid
 
 AM_CFLAGS = $(SPICE_PROTOCOL_CFLAGS) $(XORG_CFLAGS) $(PCIACCESS_CFLAGS) $(CWARNFLAGS) $(DRM_CFLAGS) @LIBUDEV_CFLAGS@
 
@@ -96,6 +96,7 @@ spiceqxl_drv_la_SOURCES =				\
 	spiceqxl_uinput.c			\
 	spiceqxl_uinput.h			\
 	spiceqxl_audio.c			\
+	spiceqxl_smartcard.c			\
 	spiceqxl_audio.h			\
 	spiceqxl_inputs.c			\
 	spiceqxl_inputs.h			\

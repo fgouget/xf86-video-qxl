@@ -137,8 +137,31 @@ if test "x$enable_xspice" = "xyes"; then
 else
     enable_xspice=no
 fi
+
+AC_ARG_ENABLE([ccid],
+            [AS_HELP_STRING([--enable-ccid],
+            [Build the spiceccid SmartCard driver (default is no)])],
+            [enable_ccid=$enableval],
+            [enable_ccid=no])
+AC_ARG_WITH(ccid-module-dir,
+            [AS_HELP_STRING([--with-ccid-module-dir=DIR ],
+            [Specify the install path for spiceccid driver (default is $libdir/pcsc/drivers/serial)])],
+            [ cciddir="$withval" ],
+            [ cciddir="$libdir/pcsc/drivers/serial" ])
+AC_SUBST(cciddir)
+if test "x$enable_ccid" != "xno"; then
+    PKG_CHECK_MODULES(LIBPCSCLITE, [libpcsclite])
+    PKG_CHECK_MODULES(LIBCACARD, [libcacard])
+
+    if test "x$enable_xspice" = "xno"; then
+        AC_MSG_ERROR([Building with ccid requires xspice, but xspice is not enabled])
+    fi
+fi
+
+
 AM_CONDITIONAL(BUILD_XSPICE, test "x$enable_xspice" = "xyes")
 AM_CONDITIONAL(BUILD_QXL, test "x$enable_qxl" = "xyes")
+AM_CONDITIONAL(BUILD_SPICECCID, test "x$enable_ccid" = "xyes")
 
 AC_ARG_ENABLE([udev],
 		AS_HELP_STRING([--disable-udev], [Disable libudev support [default=auto]]),
@@ -168,6 +191,7 @@ fi
 AC_CONFIG_FILES([
                 Makefile
                 src/Makefile
+                src/spiceccid/Makefile
                 src/uxa/Makefile
                 scripts/Makefile
                 examples/Makefile
@@ -187,4 +211,5 @@ echo "
         KMS:                      ${DRM_MODE}
         Build qxl:                ${enable_qxl}
         Build xspice:             ${enable_xspice}
+        Build spiceccid:          ${enable_ccid}
 "
