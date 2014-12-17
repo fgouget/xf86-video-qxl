@@ -271,9 +271,6 @@ struct _qxl_screen_t
     xf86OutputPtr *             outputs;
 
 #ifndef XSPICE
-    void *			io_pages;
-    void *			io_pages_physical;
-
 #ifdef XSERVER_LIBPCIACCESS
     struct pci_device *		pci;
 #else

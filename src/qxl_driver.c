@@ -758,11 +758,6 @@ qxl_screen_init (SCREEN_INIT_ARGS_DECL)
 	}
     }
     
-#ifndef XSPICE
-    qxl->io_pages = (void *)((unsigned long)qxl->ram);
-    qxl->io_pages_physical = (void *)((unsigned long)qxl->ram_physical);
-#endif
-    
     qxl->command_ring = qxl_ring_create ((struct qxl_ring_header *)&(ram_header->cmd_ring),
                                          sizeof (struct QXLCommand),
                                          QXL_COMMAND_RING_SIZE, QXL_IO_NOTIFY_CMD, qxl);
