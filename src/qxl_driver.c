@@ -167,7 +167,6 @@ qxl_available_options (int chipid, int busid)
 }
 
 /* Having a single monitors config struct allocated on the device avoids any
- *
  * possible fragmentation. Since X is single threaded there is no danger
  * in us changing it between issuing the io and getting the interrupt to signal
  * spice-server is done reading it.
