@@ -302,7 +302,7 @@ if retpid != 0:
 else:
     if args.vdagent_enabled and args.vdagent_launch:
         # XXX use systemd --user for this?
-        vdagentd = launch(args=[args.vdagentd_exec, '-x', '-S', vdagentd_uds,
+        vdagentd = launch(args=[args.vdagentd_exec, '-f', '-x', '-S', vdagentd_uds,
                           '-s', args.vdagent_virtio_path, '-u', args.vdagent_uinput_path])
         time.sleep(1)
         # TODO wait for uinput pipe open for write
