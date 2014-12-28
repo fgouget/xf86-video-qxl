@@ -114,8 +114,14 @@ if cgdb:
 args, xorg_args = parser.parse_known_args(sys.argv[1:])
 
 def agents_new_enough(args):
-    if not os.path.exists(args.vdagent_exec) or not os.path.exists(args.vdagentd_exec):
-        return False
+    for f in [args.vdagent_exec, args.vdagentd_exec]:
+        if not f:
+            print 'please specify path to vdagent/vdagentd executables'
+            return False
+        if not os.path.exists(f):
+            print 'error: file not found ', f
+            return False
+
     for f in [args.vdagent_exec, args.vdagentd_exec]:
         if Popen(args=[f, '-h'], stdout=PIPE).stdout.read().find('-S') == -1:
             return False
