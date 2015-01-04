@@ -383,23 +383,23 @@ static void playback_dir_changed(int fd, int event, void *opaque)
 {
     qxl_screen_t *qxl = opaque;
     static unsigned char buf[sizeof(struct inotify_event) + NAME_MAX + 1];
-    static int index = 0;
+    static int offset = 0;
     struct inotify_event *e;
     int rc;
 
     do {
-        rc = read(fd, buf + index, sizeof(buf) - index);
+        rc = read(fd, buf + offset, sizeof(buf) - offset);
         if (rc > 0) {
-            index += rc;
-            if (index >= sizeof(*e)) {
+            offset += rc;
+            if (offset >= sizeof(*e)) {
                 int len;
                 e = (struct inotify_event *) buf;
                 len = sizeof(*e) + e->len;
-                if (index >= len) {
+                if (offset >= len) {
                     handle_one_change(qxl, e);
-                    if (index > len)
-                        memmove(buf, buf + index, index - len);
-                    index -= len;
+                    if (offset > len)
+                        memmove(buf, buf + offset, offset - len);
+                    offset -= len;
                 }
             }
         }
