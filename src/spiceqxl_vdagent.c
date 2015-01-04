@@ -46,13 +46,13 @@ static int vmc_write(SpiceCharDeviceInstance *sin, const uint8_t *buf, int len)
 
 static int vmc_read(SpiceCharDeviceInstance *sin, uint8_t *buf, int len)
 {
-    int read;
+    int nbytes;
 
     if (virtio_client_fd == -1) {
         return 0;
     }
-    read = recv(virtio_client_fd, buf, len, 0);
-    if (read <= 0) {
+    nbytes = recv(virtio_client_fd, buf, len, 0);
+    if (nbytes <= 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
             return 0;
         }
@@ -62,7 +62,7 @@ static int vmc_read(SpiceCharDeviceInstance *sin, uint8_t *buf, int len)
         vdagent_sin.qxl->core->watch_remove(virtio_client_watch);
         virtio_client_watch = NULL;
     }
-    return read;
+    return nbytes;
 }
 
 static void on_read_available(int fd, int event, void *opaque)
