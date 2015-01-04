@@ -1042,7 +1042,7 @@ uxa_glyphs(CARD8 op,
 	int xDst = list->xOff, yDst = list->yOff;
 	BoxRec extents = { 0, 0, 0, 0 };
 	Bool have_extents = FALSE;
-	int width, height, ret;
+	int width = 0, height = 0, ret;
 	PicturePtr localDst = pDst;
 
 	if (!uxa_screen->info->prepare_composite ||
