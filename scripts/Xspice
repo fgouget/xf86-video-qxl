@@ -128,6 +128,10 @@ def agents_new_enough(args):
     return True
 
 if args.vdagent_enabled:
+    if not args.vdagent_exec:
+        args.vdagent_exec = 'spice-vdagent'
+    if not args.vdagentd_exec:
+        args.vdagentd_exec = 'spice-vdagentd'
     args.vdagent_exec = which(args.vdagent_exec)
     args.vdagentd_exec = which(args.vdagentd_exec)
     if not agents_new_enough(args):
@@ -288,6 +292,7 @@ if args.vdagent_enabled:
         if os.path.exists(f):
             os.unlink(f)
     cleanup_files.extend([args.vdagent_virtio_path, args.vdagent_uinput_path])
+
 xorg = launch(executable=args.xorg, args=exec_args + xorg_args)
 time.sleep(2)
 
