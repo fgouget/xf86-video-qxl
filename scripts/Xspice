@@ -26,12 +26,15 @@ import signal
 from subprocess import Popen, PIPE
 
 def which(x):
+    if not x:
+        return x
     if os.path.exists(x):
         return x
     for p in os.environ['PATH'].split(':'):
         candidate = os.path.join(p, x)
         if os.path.exists(candidate):
             return candidate
+    print 'Warning: failed to find executable %s' % x
     return None
 
 if 'XSPICE_ENABLE_GDB' in os.environ:
