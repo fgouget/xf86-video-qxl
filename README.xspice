@@ -77,6 +77,7 @@ for src in \
     git://anongit.freedesktop.org/xorg/xserver \
     git://anongit.freedesktop.org/xorg/lib/libxtrans \
     git://anongit.freedesktop.org/xorg/lib/libxkbfile \
+    git://anongit.freedesktop.org/xkeyboard-config \
     git://git.freedesktop.org/git/spice/spice-protocol \
     git://git.freedesktop.org/git/spice/spice ;
 do
@@ -108,6 +109,7 @@ sudo yum install xorg-x11-server-devel libxcb-util-devel xcb-util-keysyms-devel 
 (cd libxtrans; ./autogen.sh --prefix=$TEST && make install)
 (cd libxkbfile; ./autogen.sh --prefix=$TEST && make install)
 (cd xkbcomp; ./autogen.sh --prefix=$TEST && make install)
+(cd xkeyboard-config; ./autogen.sh --prefix=$TEST && make install)
 
 
 # make sure DBUS_TYPE_UNIX_FD is defined (failed on my RHEL6 machine)
@@ -126,11 +128,6 @@ export ACLOCAL="aclocal -I $TEST/share/aclocal"
 
 mkdir -p $TEST/etc/X11
 cp xspice/examples/spiceqxl.xorg.conf.example $TEST/etc/X11/spiceqxl.xorg.conf
-
-last bit is a little ugly (FIXME), copy over the xkb bits from the existing X11
-installation:
-mkdir -p $TEST/share/X11
-cp -R /usr/share/X11/xkb $TEST/share/X11
 
 # Possibly also build spice-vdagent:
 sudo yum install libXrandr-devel libXinerama-devel
