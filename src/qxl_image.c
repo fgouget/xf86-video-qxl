@@ -37,18 +37,6 @@
 #include "qxl.h"
 #include "murmurhash3.h"
 
-typedef struct image_info_t image_info_t;
-
-struct image_info_t
-{
-    struct QXLImage *image;
-    int ref_count;
-    image_info_t *next;
-};
-
-#define HASH_SIZE 4096
-static image_info_t *image_table[HASH_SIZE];
-
 static unsigned int
 hash_and_copy (const uint8_t *src, int src_stride,
 	       uint8_t *dest, int dest_stride,
@@ -74,69 +62,12 @@ hash_and_copy (const uint8_t *src, int src_stride,
     return hash;
 }
 
-static image_info_t *
-lookup_image_info (unsigned int hash,
-		   int width,
-		   int height)
-{
-    struct image_info_t *info = image_table[hash % HASH_SIZE];
-
-    while (info)
-    {
-	struct QXLImage *image = info->image;
-
-	if (image->descriptor.id == hash		&&
-	    image->descriptor.width == width		&&
-	    image->descriptor.height == height)
-	{
-	    return info;
-	}
-
-	info = info->next;
-    }
-
-#if 0
-    ErrorF ("lookup of %u failed\n", hash);
-#endif
-    
-    return NULL;
-}
-
-static image_info_t *
-insert_image_info (unsigned int hash)
-{
-    struct image_info_t *info = malloc (sizeof (image_info_t));
-
-    if (!info)
-	return NULL;
-
-    info->next = image_table[hash % HASH_SIZE];
-    image_table[hash % HASH_SIZE] = info;
-    
-    return info;
-}
-
-static void
-remove_image_info (image_info_t *info)
-{
-    struct image_info_t **location = &image_table[info->image->descriptor.id % HASH_SIZE];
-
-    while (*location && (*location) != info)
-	location = &((*location)->next);
-
-    if (*location)
-	*location = info->next;
-
-    free (info);
-}
-
 struct qxl_bo *
 qxl_image_create (qxl_screen_t *qxl, const uint8_t *data,
 		  int x, int y, int width, int height,
 		  int stride, int Bpp, Bool fallback)
 {
 	uint32_t hash;
-	image_info_t *info;
 	struct QXLImage *image;
 	struct qxl_bo *head_bo, *tail_bo;
 	struct qxl_bo *image_bo;
@@ -252,18 +183,11 @@ qxl_image_create (qxl_screen_t *qxl, const uint8_t *data,
 	if ((fallback && qxl->enable_fallback_cache)	||
 	    (!fallback && qxl->enable_image_cache))
 	{
-	    if ((info = insert_image_info (hash)))
-	    {
-		info->image = image;
-		info->ref_count = 1;
-
-		image->descriptor.id = hash;
-		image->descriptor.flags = QXL_IMAGE_CACHE;
-
+            image->descriptor.id = hash;
+            image->descriptor.flags = QXL_IMAGE_CACHE;
 #if 0
-		ErrorF ("added with hash %u\n", hash);
+            ErrorF ("added with hash %u\n", hash);
 #endif
-	    }
 	}
 
 	qxl->bo_funcs->bo_unmap(image_bo);
@@ -275,28 +199,10 @@ qxl_image_destroy (qxl_screen_t *qxl,
 		   struct qxl_bo *image_bo)
 {
     struct QXLImage *image;
-
-    image_info_t *info;
     uint64_t chunk, prev_chunk;
 
     image = qxl->bo_funcs->bo_map(image_bo);
-    info = lookup_image_info (image->descriptor.id,
-			      image->descriptor.width,
-			      image->descriptor.height);
     qxl->bo_funcs->bo_unmap(image_bo);
-    if (info && info->image == image)
-    {
-	--info->ref_count;
-
-	if (info->ref_count != 0)
-	    return;
-
-#if 0
-	ErrorF ("removed %p from hash table\n", info->image);
-#endif
-	
-	remove_image_info (info);
-    }
 
     image = qxl->bo_funcs->bo_map(image_bo);
     chunk = image->bitmap.data;
@@ -321,10 +227,4 @@ qxl_image_destroy (qxl_screen_t *qxl,
     }
     qxl->bo_funcs->bo_unmap(image_bo);
     qxl->bo_funcs->bo_decref (qxl, image_bo);
-}
-
-void
-qxl_drop_image_cache (qxl_screen_t *qxl)
-{
-    memset (image_table, 0, HASH_SIZE * sizeof (image_info_t *));
 }

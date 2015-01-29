@@ -571,8 +571,6 @@ struct qxl_bo *qxl_image_create     (qxl_screen_t           *qxl,
 				       Bool		       fallback);
 void              qxl_image_destroy    (qxl_screen_t           *qxl,
 				        struct qxl_bo *bo);
-void		  qxl_drop_image_cache (qxl_screen_t	       *qxl);
-
 
 /*
  * Malloc

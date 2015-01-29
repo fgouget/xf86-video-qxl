@@ -289,7 +289,6 @@ qxl_unmap_memory (qxl_screen_t *qxl)
     if (qxl->mem)
     {
 	qxl_mem_free_all (qxl->mem);
-	qxl_drop_image_cache (qxl);
 	free(qxl->mem);
 	qxl->mem = NULL;
     }
@@ -360,7 +359,6 @@ qxl_resize_surface0 (qxl_screen_t *qxl, long surface0_size)
 	surfaces = qxl_surface_cache_evacuate_all (qxl->surface_cache);
 	qxl_io_destroy_all_surfaces (qxl); // redundant?
 	qxl_io_flush_release (qxl);
-	qxl_drop_image_cache (qxl);
 	qxl_dump_ring_stat (qxl);
 	qxl_surface_cache_replace_all (qxl->surface_cache, surfaces);
 #else
@@ -856,7 +854,6 @@ qxl_enter_vt (VT_FUNC_ARGS_DECL)
     if (qxl->mem)
     {
 	qxl_mem_free_all (qxl->mem);
-	qxl_drop_image_cache (qxl);
     }
     
     if (qxl->surf_mem)
