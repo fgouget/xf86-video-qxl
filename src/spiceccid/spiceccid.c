@@ -191,7 +191,7 @@ static void process_reader_remove(smartcard_ccid_t *ccid, VSCMsgHeader *h)
 static void process_atr(smartcard_ccid_t *ccid, VSCMsgHeader *h, char *data)
 {
     ccid->atr_len = h->length;
-    if (h->length > 0 && h->length > sizeof(ccid->atr)) {
+    if (h->length > sizeof(ccid->atr)) {
         fprintf(stderr, "Supplied ATR of length %d exceeds %d maximum\n",
             h->length, sizeof(ccid->atr));
         send_reply(ccid, VSC_GENERAL_ERROR);
@@ -208,6 +208,8 @@ static void process_apdu(smartcard_ccid_t *ccid, VSCMsgHeader *h, char *data)
 {
     if (ccid->state & STATE_READER_ADDED)
         push_apdu(ccid, data, h->length);
+    else
+        fprintf(stderr, "apdu of length %d discarded; inactive reader\n", h->length);
 }
 
 static void process_card_remove(smartcard_ccid_t *ccid, VSCMsgHeader *h)
@@ -398,7 +400,7 @@ RESPONSECODE IFDHPowerICC(DWORD Lun, DWORD Action, PUCHAR Atr, PDWORD AtrLength)
 
     for (i = 0; i < MAX_LUNS; i++)
         if (luns[i].fd != -1 && luns[i].lun == Lun)
-            if (Action == IFD_POWER_UP) {
+            if (Action == IFD_POWER_UP || Action == IFD_RESET) {
                 if (*AtrLength >= luns[i].atr_len) {
                     memcpy(Atr, luns[i].atr, luns[i].atr_len);
                     *AtrLength = luns[i].atr_len;
@@ -407,6 +409,7 @@ RESPONSECODE IFDHPowerICC(DWORD Lun, DWORD Action, PUCHAR Atr, PDWORD AtrLength)
                 return IFD_SUCCESS;
             }
 
+    fprintf(stderr, "spiceccid %s unsupported: Lun %ld, Action %ld\n", __FUNCTION__, Lun, Action);
     return IFD_ERROR_NOT_SUPPORTED;
 }
 
