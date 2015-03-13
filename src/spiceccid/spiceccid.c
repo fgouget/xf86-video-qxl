@@ -289,6 +289,14 @@ static void * lun_thread(void *arg)
         } while (rc > 0 && pos > 0);
     }
 
+    fprintf(stderr, "LUN %d thread exiting: %s\n", ccid->lun,
+            rc == 0 ? "normally" : strerror(errno));
+    close(ccid->fd);
+    ccid->fd = -1;
+    ccid->lun = 0;
+    ccid->atr_len = 0;
+    ccid->state &= ~STATE_OPEN;
+
     return NULL;
 }
 
