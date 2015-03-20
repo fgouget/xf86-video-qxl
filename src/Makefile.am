@@ -97,6 +97,7 @@ spiceqxl_drv_la_SOURCES =				\
 	spiceqxl_uinput.h			\
 	spiceqxl_audio.c			\
 	spiceqxl_smartcard.c			\
+	spiceqxl_smartcard.h			\
 	spiceqxl_audio.h			\
 	spiceqxl_inputs.c			\
 	spiceqxl_inputs.h			\
