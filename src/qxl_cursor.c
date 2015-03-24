@@ -138,6 +138,7 @@ qxl_load_cursor_argb (ScrnInfoPtr pScrn, CursorPtr pCurs)
     qxl->bo_funcs->bo_unmap(cmd_bo);
 
     push_cursor(qxl, cmd_bo);
+    qxl->bo_funcs->bo_decref(qxl, cursor_bo);
 }    
 
 static Bool
