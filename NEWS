@@ -1,3 +1,10 @@
+Major changes in 0.1.4
+======================
+Added smartcard support to XSpice
+Memleak fix which could cause X to run out of memory
+Expose randr properties for suggested display positions if kernel
+supports it
+
 Major changes in 0.1.3
 ======================
 Xspice performance/stability improvements
