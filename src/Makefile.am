@@ -33,7 +33,7 @@ AM_CFLAGS =					\
 	$(PCIACCESS_CFLAGS)			\
 	$(CWARNFLAGS)				\
 	$(DRM_CFLAGS)				\
-	@LIBUDEV_CFLAGS@
+	$(LIBUDEV_CFLAGS)
 
 if BUILD_QXL
 qxl_drv_la_LTLIBRARIES = qxl_drv.la
