@@ -25,9 +25,15 @@
 # _ladir passes a dummy rpath to libtool so the thing will actually link
 # TODO: -nostdlib/-Bstatic/-lgcc platform magic, not installing the .a, etc.
 
-SUBDIRS=uxa spiceccid
+SUBDIRS = uxa spiceccid
 
-AM_CFLAGS = $(SPICE_PROTOCOL_CFLAGS) $(XORG_CFLAGS) $(PCIACCESS_CFLAGS) $(CWARNFLAGS) $(DRM_CFLAGS) @LIBUDEV_CFLAGS@
+AM_CFLAGS =					\
+	$(SPICE_PROTOCOL_CFLAGS)		\
+	$(XORG_CFLAGS)				\
+	$(PCIACCESS_CFLAGS)			\
+	$(CWARNFLAGS)				\
+	$(DRM_CFLAGS)				\
+	@LIBUDEV_CFLAGS@
 
 if BUILD_QXL
 qxl_drv_la_LTLIBRARIES = qxl_drv.la
@@ -63,7 +69,7 @@ qxl_drv_la_SOURCES =			\
 	qxl_kms.c			\
 	qxl_drmmode.c			\
 	qxl_drmmode.h			\
-	compat-api.h 
+	compat-api.h
 endif
 
 if BUILD_XSPICE
