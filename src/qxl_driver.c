@@ -219,6 +219,8 @@ unmap_memory_helper (qxl_screen_t *qxl)
 	pci_device_unmap_range (qxl->pci, qxl->vram, qxl->pci->regions[1].size);
     if (qxl->rom)
 	pci_device_unmap_range (qxl->pci, qxl->rom, qxl->pci->regions[2].size);
+    if (qxl->io)
+	pci_device_close_io (qxl->pci, qxl->io);
 #else
     if (qxl->ram)
 	xf86UnMapVidMem (scrnIndex, qxl->ram, (1 << qxl->pci->size[0]));
@@ -251,6 +253,9 @@ map_memory_helper (qxl_screen_t *qxl)
                           qxl->pci->regions[2].size, 0,
                           (void **)&qxl->rom);
     
+    qxl->io = pci_device_open_io(qxl->pci,
+                                qxl->pci->regions[3].base_addr,
+                                qxl->pci->regions[3].size);
     qxl->io_base = qxl->pci->regions[3].base_addr;
 #else
     qxl->ram = xf86MapPciMem (scrnIndex, VIDMEM_FRAMEBUFFER,

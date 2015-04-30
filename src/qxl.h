@@ -273,6 +273,7 @@ struct _qxl_screen_t
 #ifndef XSPICE
 #ifdef XSERVER_LIBPCIACCESS
     struct pci_device *		pci;
+    struct pci_io_handle *	io;
 #else
     pciVideoPtr			pci;
     PCITAG			pci_tag;
@@ -631,7 +632,7 @@ void ioport_write(qxl_screen_t *qxl, uint32_t io_port, uint32_t val);
 #else
 static inline void ioport_write(qxl_screen_t *qxl, int port, int val)
 {
-    outb(qxl->io_base + port, val);
+    pci_io_write8(qxl->io, port, val);
 }
 #endif
 
