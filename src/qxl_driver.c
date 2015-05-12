@@ -154,6 +154,8 @@ const OptionInfoRec DefaultOptions[] =
       "CommandBufferSize",        OPTV_INTEGER,    {DEFAULT_COMMAND_BUFFER_SIZE}, FALSE},
     { OPTION_SPICE_SMARTCARD_FILE,
       "SpiceSmartcardFile",       OPTV_STRING,    {0}, FALSE},
+    { OPTION_SPICE_VIDEO_CODECS,
+      "SpiceVideoCodecs",         OPTV_STRING,    {0}, FALSE},
 #endif
 
     { -1, NULL, OPTV_NONE, {0}, FALSE }
