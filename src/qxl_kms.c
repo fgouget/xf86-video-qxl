@@ -164,8 +164,8 @@ Bool qxl_pre_init_kms(ScrnInfoPtr pScrn, int flags)
     if (drmmode_pre_init(pScrn, &qxl->drmmode, pScrn->bitsPerPixel / 8) == FALSE)
       goto out;
 
-    qxl->virtual_x = 1024;
-    qxl->virtual_y = 768;
+    qxl->virtual_x = pScrn->virtualX;
+    qxl->virtual_y = pScrn->virtualY;
     
     pScrn->display->virtualX = qxl->virtual_x;
     pScrn->display->virtualY = qxl->virtual_y;
