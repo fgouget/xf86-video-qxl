@@ -286,8 +286,6 @@ Bool qxl_screen_init_kms(SCREEN_INIT_ARGS_DECL)
 	goto out;
     pScrn->displayWidth = pScrn->virtualX;
 
-    pScrn->virtualX = pScrn->currentMode->HDisplay;
-    pScrn->virtualY = pScrn->currentMode->VDisplay;
     if (!qxl_fb_init (qxl, pScreen))
 	goto out;
     
