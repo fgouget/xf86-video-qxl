@@ -296,7 +296,7 @@ static void select_and_check_watches(void)
     watch = (SpiceWatch*)watches.next;
     timeout.tv_sec = timeout.tv_usec = 0;
     retval = select(max_fd + 1, &rfds, &wfds, NULL, &timeout);
-    if (retval) {
+    if (retval > 0) {
         RING_FOREACH_SAFE(link, next, &watches) {
             watch = (SpiceWatch*)link;
             if (!watch->remove && (watch->event_mask & SPICE_WATCH_EVENT_READ)
