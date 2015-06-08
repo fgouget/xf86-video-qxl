@@ -87,6 +87,7 @@ parser.add_argument('--zlib-glz-wan-compression',
 # TODO - sound support
 parser.add_argument('--streaming-video', choices=['off', 'all', 'filter'],
                     help='filter by default')
+parser.add_argument('--video-codecs', help="Sets a semicolon-separated list of preferred video codecs to use. Each takes the form encoder:codec, with spice:mjpeg being the default and other options being provided by gstreamer for the mjpeg, vp8 and h264 codecs.")
 add_boolean('--ipv4-only')
 add_boolean('--ipv6-only')
 parser.add_argument('--vdagent', action='store_true', dest='vdagent_enabled', default=False, help='launch vdagent & vdagentd. They provide clipboard & resolution automation')
@@ -282,7 +283,7 @@ var_args = ['port', 'tls_port', 'disable_ticketing',
     'x509_key_file', 'x509_key_password',
     'tls_ciphers', 'dh_file', 'password', 'image_compression',
     'jpeg_wan_compression', 'zlib_glz_wan_compression',
-    'streaming_video', 'deferred_fps', 'exit_on_disconnect',
+    'streaming_video', 'video_codecs', 'deferred_fps', 'exit_on_disconnect',
     'vdagent_enabled', 'vdagent_virtio_path', 'vdagent_uinput_path',
     'vdagent_uid', 'vdagent_gid']
 
