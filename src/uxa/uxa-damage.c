@@ -33,6 +33,9 @@
 #include    <scrnintstr.h>
 #include    <windowstr.h>
 #include    <X11/X.h>
+#include    <X11/fonts/font.h>
+#include    <X11/fonts/fontstruct.h>
+#include    <X11/fonts/fontutil.h>
 
 #include    "uxa-damage.h"
 
