@@ -27,12 +27,13 @@
 #include <stdlib.h>
 #include "uxa-priv.h"
 
+#include    <dixfontstr.h>
+#include    <gcstruct.h>
+#include    <picturestr.h>
+#include    <scrnintstr.h>
+#include    <windowstr.h>
 #include    <X11/X.h>
-#include    "scrnintstr.h"
-#include    "windowstr.h"
-#include    "dixfontstr.h"
-#include    "gcstruct.h"
-#include    "picturestr.h"
+
 #include    "uxa-damage.h"
 
 typedef struct _damageGCPriv {
