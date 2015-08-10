@@ -136,7 +136,7 @@ if args.vdagent_enabled:
     args.vdagentd_exec = which(args.vdagentd_exec)
     if not agents_new_enough(args):
         if args.vdagent_enabled:
-            print("erorr: vdagent is not new enough to support Xspice")
+            print("error: vdagent is not new enough to support Xspice")
             raise SystemExit
         args.vdagent_enabled = False
 
