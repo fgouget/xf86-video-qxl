@@ -45,7 +45,7 @@ else:
     cgdb = None
 
 def add_boolean(flag, *args, **kw):
-    parser.add_argument(flag, action='store_const', const='1', default='0',
+    parser.add_argument(flag, action='store_const', const='1',
                         *args, **kw)
 
 wan_compression_options = ['auto', 'never', 'always']
@@ -65,7 +65,7 @@ parser.add_argument('--deferred-fps', type=int, help='If given, render to a buff
 parser.add_argument('--tls-port', type=int, help='spice tls port', default=0)
 add_boolean('--disable-ticketing', help="do not require a client password")
 add_boolean('--sasl', help="enable sasl")
-parser.add_argument('--x509-dir', help="x509 directory for tls", default='.')
+parser.add_argument('--x509-dir', help="x509 directory for tls")
 parser.add_argument('--cacert-file', help="ca certificate file for tls")
 parser.add_argument('--x509-cert-file', help="server certificate file for tls")
 parser.add_argument('--x509-key-file', help="server key file for tls")
@@ -76,16 +76,16 @@ parser.add_argument('--password', help="set password required to connect to serv
 parser.add_argument('--image-compression',
                     choices = ['off', 'auto_glz', 'auto_lz', 'quic',
                                'glz', 'lz'],
-                    default='auto_glz', help='auto_glz by default')
+                    help='auto_glz by default')
 parser.add_argument('--jpeg-wan-compression',
                     choices=wan_compression_options,
-                    default='auto', help='auto by default')
+                    help='auto by default')
 parser.add_argument('--zlib-glz-wan-compression',
                     choices=wan_compression_options,
-                    default='auto', help='auto by default')
+                    help='auto by default')
 # TODO - sound support
 parser.add_argument('--streaming-video', choices=['off', 'all', 'filter'],
-                    default='filter', help='filter by default')
+                    help='filter by default')
 add_boolean('--ipv4-only')
 add_boolean('--ipv6-only')
 parser.add_argument('--vdagent', action='store_true', dest='vdagent_enabled', default=False, help='launch vdagent & vdagentd. They provide clipboard & resolution automation')
@@ -96,7 +96,7 @@ parser.add_argument('--vdagent-exec', help='path to spice-vdagent (used with --v
 parser.add_argument('--vdagent-no-launch', default=True, action='store_false', dest='vdagent_launch', help='do not launch vdagent & vdagentd, used for debugging or if some external script wants to take care of that')
 parser.add_argument('--vdagent-uid', default=str(os.getuid()), help='set vdagent user id. changing it makes sense only in conjunction with --vdagent-no-launch')
 parser.add_argument('--vdagent-gid', default=str(os.getgid()), help='set vdagent group id. changing it makes sense only in conjunction with --vdagent-no-launch')
-parser.add_argument('--audio-fifo-dir', default='', help="set fifo directory for playback audio. designed to work with PulseAudio's module-pipe-sink")
+parser.add_argument('--audio-fifo-dir', help="set fifo directory for playback audio. designed to work with PulseAudio's module-pipe-sink")
 
 #TODO
 #Option "SpiceAddr" ""
@@ -105,7 +105,7 @@ parser.add_argument('--audio-fifo-dir', default='', help="set fifo directory for
 #Option "EnableFallbackCache" "True"
 #Option "EnableSurfaces" "True"
 #Option "NumHeads" "4"
-#parser.add_argument('--playback-compression', choices=['0', '1'], default='1', help='enabled by default')
+#parser.add_argument('--playback-compression', choices=['0', '1'], help='enabled by default')
 #Option "SpiceDisableCopyPaste" "False"
 
 if cgdb:
