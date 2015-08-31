@@ -295,10 +295,8 @@ void xspice_set_spice_server_options(OptionInfoPtr options)
         spice_server_set_streaming_video(spice_server, streaming_video_opt);
     }
 
-    spice_server_set_agent_mouse
-        (spice_server, agent_mouse);
-    spice_server_set_playback_compression
-        (spice_server, playback_compression);
+    spice_server_set_agent_mouse(spice_server, agent_mouse);
+    spice_server_set_playback_compression(spice_server, playback_compression);
 
     free(x509_key_file);
     free(x509_cert_file);
