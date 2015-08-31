@@ -3,6 +3,7 @@
 #endif
 
 #include <stdlib.h>
+#include <strings.h>
 
 #include <xf86.h>
 #include <xf86Opt.h>
@@ -30,12 +31,24 @@ const char *get_str_option(OptionInfoPtr options, int option_index,
 int get_bool_option(OptionInfoPtr options, int option_index,
                      const char *env_name)
 {
-    if (getenv(env_name)) {
-        /* we don't support the whole range of boolean true and
-         * false values documented in man xorg.conf, just the c
-         * convention - 0 is false, anything else is true, so
-         * just like a number. */
-        return !!atoi(getenv(env_name));
+    const char* value = getenv(env_name);
+
+    if (!value) {
+        return options[option_index].value.bool;
     }
-    return options[option_index].value.bool;
+    if (strcmp(value, "0") == 0 ||
+        strcasecmp(value, "off") == 0 ||
+        strcasecmp(value, "false") == 0 ||
+        strcasecmp(value, "no") == 0) {
+        return FALSE;
+    }
+    if (strcmp(value, "1") == 0 ||
+        strcasecmp(value, "on") == 0 ||
+        strcasecmp(value, "true") == 0 ||
+        strcasecmp(value, "yes") == 0) {
+        return TRUE;
+    }
+
+    fprintf(stderr, "spice: treating invalid boolean %s as true: %s\n", env_name, value);
+    return TRUE;
 }
