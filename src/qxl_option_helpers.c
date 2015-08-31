@@ -49,6 +49,6 @@ int get_bool_option(OptionInfoPtr options, int option_index,
         return TRUE;
     }
 
-    fprintf(stderr, "spice: treating invalid boolean %s as true: %s\n", env_name, value);
-    return TRUE;
+    fprintf(stderr, "spice: invalid %s: %s\n", env_name, value);
+    exit(1);
 }
