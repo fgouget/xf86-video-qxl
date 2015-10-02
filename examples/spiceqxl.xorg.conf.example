@@ -4,7 +4,7 @@ Section "Device"
 
     # Enable regular port. Either this or SpiceTlsPort, or one of XSPICE_PORT or
     # XSPICE_TLS_PORT environment variables must be specified
-    # Defaults to 5900.
+    # default: 5900
     #Option "SpicePort" "5900"
 
     # Enable a TLS (encrypted) port. Either this or SpicePort must be specified,
@@ -15,7 +15,7 @@ Section "Device"
     #Option "SpiceAddr" ""
 
     # Enable usage of SASL supported by spice-gtk client. Not required,
-    # defaults to false.
+    # default: False
     #Option "SpiceSasl" "True"
 
     # Do not request any password from client
@@ -48,27 +48,27 @@ Section "Device"
     #Option "SpiceDhFile" ""
 
     # Set streaming video method. Options are filter, off, all
-    # defaults to filter.
+    # default: filter
     #Option "SpiceStreamingVideo" ""
 
     # Set zlib glz wan compression. Options are auto, never, always.
-    # defaults to auto.
+    # default: auto
     #Option "SpiceZlibGlzWanCompression" ""
 
     # Set jpeg wan compression. Options are auto, never, always
-    # defaults to auto.
+    # default: auto
     #Option "SpiceJpegWanCompression" ""
 
     # Set image compression. Options are off,auto_glz,auto_lz,quic,glz,lz.
-    # defaults to auto_glz.
+    # default: auto_glz
     #Option "SpiceImageCompression" ""
 
     # Set to true to only listen on ipv4 interfaces.
-    # defaults to false.
+    # default: False
     #Option "SpiceIPV4Only" ""
 
     # Set to true to only listen on ipv6 interfaces.
-    # defaults to false.
+    # default: False
     #Option "SpiceIPV6Only" ""
 
     # If non zero, the driver will render all operations to the frame buffer,
@@ -81,19 +81,19 @@ Section "Device"
     #Option "SpiceExitOnDisconnect" "1"
 
     # Enable caching of images directly written with uxa->put_image
-    # defaults to True
+    # default: True
     #Option "EnableImageCache" "True"
 
     # Enable caching of images created by uxa->prepare_access
-    # defaults to True
+    # default: True
     #Option "EnableFallbackCache" "True"
 
     # Enable the use of off screen srufaces
-    # defaults to True
+    # default: True
     #Option "EnableSurfaces" "True"
 
     # The number of heads to allocate by default
-    # defaults to 4
+    # default: 4
     #Option "NumHeads" "4"
 
     #--------------------------------------------------------------
@@ -112,30 +112,54 @@ Section "Device"
     #--------------------------------------------------------------
 
     # The amount of surface buffer ram, in megabytes, to allocate
-    # defaults to 128
+    # default: 128
     #Option "SurfaceBufferSize" "128"
 
     # The amount of command buffer ram, in megabytes, to allocate
-    # defaults to 128
+    # default: 128
     #Option "CommandBufferSize" "128"
 
     # The amount of frame buffer ram, in megabytes, to reserve
     #  This is reserved out of the CommandBuffer RAM
     #  This governs the maximum size the X screen can be;
     #   4 Heads at 1920x1080 require 32M of RAM
-    # defaults to 16
+    # default: 16
     #Option "FrameBufferSize" "16"
 
+    # Whether or not to accept Vdagent connections
+    # default: False
+    #Option "SpiceVdagentEnabled" "False"
+
+    # Default path to listen for agent virtual io connections
+    #  default: /tmp/xspice-virtio"
+    #Option "SpiceVdagentVirtioPath" "/tmp/xspice-virtio"
+
+    # Default path to listen for agent uinput connections
+    #  default: /tmp/xspice-uinput
+    #Option "SpiceVdagentUinputPath" "/tmp/xspice-uinput"
+
+    # Default user id to set for the Virtio and Uinput sockets
+    #  default: 0, or none
+    #  Note: both uid and gid must be given for either to take
+    #  effect
+    #Option "SpiceVdagentUid" "0"
+
+    # Default group id to set for the Virtio and Uinput sockets
+    #  default: 0, or none
+    #  Note: both uid and gid must be given for either to take
+    #  effect
+    #Option "SpiceVdagentGid" "0"
+
     # Set Spice Agent Mouse - Use Agent mouse if an agent connects
-    # defaults to true
+    # default: True
     #Option "SpiceAgentMouse" "True"
 
     # Set Spice Playback compression
-    # defaults to true
+    # default: True
     #Option "SpicePlaybackCompression" "True"
 
     # Disable copy and paste
-    # defaults to false
+    # default: False
     #Option "SpiceDisableCopyPaste" "False"
 
     # If a directory is given, any file in that
@@ -145,6 +169,7 @@ Section "Device"
 
     # A unix domain name for a unix domain socket
     #  to communicate with a spiceccid smartcard driver
+    #  Default is not to use a smartcard driver.
     #Option "SpiceSmartCardFile"  "/tmp/spice.pcsc.comm"
 EndSection
 
