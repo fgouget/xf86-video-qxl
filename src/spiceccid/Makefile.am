@@ -19,11 +19,10 @@
 #  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-AM_CFLAGS = $(LIBPCSCLITE_CFLAGS)
-
 if BUILD_SPICECCID
 libspiceccid_la_LTLIBRARIES = libspiceccid.la
-libspiceccid_la_LDFLAGS     = $(LIBPCSCLITE_LDFLAGS)
+libspiceccid_la_CFLAGS      = $(LIBPCSCLITE_CFLAGS) $(LIBCACARD_CFLAGS)
+libspiceccid_la_LDFLAGS     = $(LIBPCSCLITE_LDFLAGS) $(LIBCACARD_LDFLAGS)
 libspiceccid_la_SOURCES     = spiceccid.c
 libspiceccid_ladir          = @cciddir@/
 endif

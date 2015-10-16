@@ -44,7 +44,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "cacard/vscard_common.h"
+#include "vscard_common.h"
 #include "ifdhandler.h"
 #include <arpa/inet.h>
 
