@@ -56,11 +56,12 @@ static int vmc_read(SpiceCharDeviceInstance *sin, uint8_t *buf, int len)
         if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
             return 0;
         }
-        fprintf(stderr, "ERROR: vdagentd died\n");
+        fprintf(stderr, "ERROR: vdagent died\n");
         close(virtio_client_fd);
         virtio_client_fd = -1;
         vdagent_sin.qxl->core->watch_remove(virtio_client_watch);
         virtio_client_watch = NULL;
+        spice_server_remove_interface(&vdagent_sin.base.base);
     }
     return nbytes;
 }
@@ -120,6 +121,9 @@ static void on_accept(int fd, int event, void *opaque)
     }
     virtio_client_watch = qxl->core->watch_add(virtio_client_fd, SPICE_WATCH_EVENT_READ
         /* TODO - SPICE_WATCH_EVENT_WRITE */, on_read_available, qxl);
+
+    spice_server_add_interface(qxl->spice_server, &vdagent_sin.base.base);
+
     return;
 
 error:
@@ -167,6 +171,5 @@ void spiceqxl_vdagent_init(qxl_screen_t *qxl)
         /* TODO - SPICE_WATCH_EVENT_WRITE */, on_accept, qxl);
 
     vdagent_sin.base.base.sif = &vmc_interface.base;
-    spice_server_add_interface(qxl->spice_server, &vdagent_sin.base.base);
     spiceqxl_uinput_init(qxl);
 }
