@@ -62,6 +62,7 @@ static int vmc_read(SpiceCharDeviceInstance *sin, uint8_t *buf, int len)
         vdagent_sin.qxl->core->watch_remove(virtio_client_watch);
         virtio_client_watch = NULL;
         spice_server_remove_interface(&vdagent_sin.base.base);
+        spiceqxl_uinput_watch(vdagent_sin.qxl, FALSE);
     }
     return nbytes;
 }
@@ -123,6 +124,7 @@ static void on_accept(int fd, int event, void *opaque)
         /* TODO - SPICE_WATCH_EVENT_WRITE */, on_read_available, qxl);
 
     spice_server_add_interface(qxl->spice_server, &vdagent_sin.base.base);
+    spiceqxl_uinput_watch(qxl, TRUE);
 
     return;
 
