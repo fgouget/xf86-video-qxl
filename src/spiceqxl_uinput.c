@@ -122,7 +122,6 @@ void spiceqxl_uinput_init(qxl_screen_t *qxl)
                uinput_filename, strerror(errno));
         return;
     }
-    spice_server_set_agent_mouse(qxl->spice_server, 1);
 }
 
 void spiceqxl_uinput_watch(qxl_screen_t *qxl, Bool on)

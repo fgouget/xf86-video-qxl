@@ -126,9 +126,9 @@ Section "Device"
     # defaults to 16
     #Option "FrameBufferSize" "16"
 
-    # Set Spice Agent Mouse
-    # defaults to false
-    #Option "SpiceAgentMouse" "False"
+    # Set Spice Agent Mouse - Use Agent mouse if an agent connects
+    # defaults to true
+    #Option "SpiceAgentMouse" "True"
 
     # Set Spice Playback compression
     # defaults to true

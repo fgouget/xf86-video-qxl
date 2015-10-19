@@ -98,9 +98,8 @@ const OptionInfoRec DefaultOptions[] =
       "SpiceX509Dir",             OPTV_STRING,    {0}, FALSE},
     { OPTION_SPICE_SASL,
       "SpiceSasl",                OPTV_BOOLEAN,   {0}, FALSE},
-    /* VVV qemu defaults to 1 - not implemented in xspice yet */
     { OPTION_SPICE_AGENT_MOUSE,
-      "SpiceAgentMouse",          OPTV_BOOLEAN,   {0}, FALSE},
+      "SpiceAgentMouse",          OPTV_BOOLEAN,   {0}, TRUE },
     { OPTION_SPICE_DISABLE_TICKETING,
       "SpiceDisableTicketing",    OPTV_BOOLEAN,   {0}, FALSE},
     { OPTION_SPICE_PASSWORD,
