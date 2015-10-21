@@ -92,6 +92,7 @@ add_boolean('--ipv6-only')
 parser.add_argument('--vdagent', action='store_true', dest='vdagent_enabled', default=False, help='launch vdagent & vdagentd. They provide clipboard & resolution automation')
 parser.add_argument('--vdagent-virtio-path', default='/tmp/xspice-virtio', help='virtio socket path used by vdagentd')
 parser.add_argument('--vdagent-uinput-path', default='/tmp/xspice-uinput', help='uinput socket path used by vdagent')
+parser.add_argument('--vdagent-udcs-path', default='/tmp/xspice-vdagent', help='udcs socket path used by vdagent and vdagentd')
 parser.add_argument('--vdagentd-exec', help='path to spice-vdagentd (used with --vdagent)')
 parser.add_argument('--vdagent-exec', help='path to spice-vdagent (used with --vdagent)')
 parser.add_argument('--vdagent-no-launch', default=True, action='store_false', dest='vdagent_launch', help='do not launch vdagent & vdagentd, used for debugging or if some external script wants to take care of that')
@@ -290,13 +291,11 @@ if cgdb and args.cgdb:
 xorg_args = [ '-noreset' ] + xorg_args
 
 
-# TODO /tmp/xspice-vdagent - replace with temporary file in temporary directory
-vdagentd_uds = '/tmp/xspice-vdagent'
 if args.vdagent_enabled:
-    for f in [vdagentd_uds, args.vdagent_virtio_path, args.vdagent_uinput_path]:
+    for f in [args.vdagent_udcs_path, args.vdagent_virtio_path, args.vdagent_uinput_path]:
         if os.path.exists(f):
             os.unlink(f)
-    cleanup_files.extend([args.vdagent_virtio_path, args.vdagent_uinput_path])
+    cleanup_files.extend([args.vdagent_udcs_path, args.vdagent_virtio_path, args.vdagent_uinput_path])
 
 xorg = launch(executable=args.xorg, args=exec_args + xorg_args)
 time.sleep(2)
@@ -307,12 +306,12 @@ if retpid != 0:
 else:
     if args.vdagent_enabled and args.vdagent_launch:
         # XXX use systemd --user for this?
-        vdagentd = launch(args=[args.vdagentd_exec, '-f', '-x', '-S', vdagentd_uds,
+        vdagentd = launch(args=[args.vdagentd_exec, '-f', '-x', '-S', args.vdagent_udcs_path,
                           '-s', args.vdagent_virtio_path, '-u', args.vdagent_uinput_path])
         time.sleep(1)
         # TODO wait for uinput pipe open for write
         vdagent = launch(args=[args.vdagent_exec, '-x', '-s', args.vdagent_virtio_path, '-S',
-                         vdagentd_uds])
+                         args.vdagent_udcs_path])
     if args.xsession:
         environ = os.environ
         os.spawnlpe(os.P_NOWAIT, args.xsession, environ)
