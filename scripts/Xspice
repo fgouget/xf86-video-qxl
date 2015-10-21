@@ -61,6 +61,7 @@ parser.add_argument('--config', default='spiceqxl.xorg.conf')
 # specifically, don't use -p and -s.
 parser.add_argument('--port', type=int, help='standard spice port')
 parser.add_argument('--exit-on-disconnect', action='store_true', help='Exit the X server when any client disconnects')
+parser.add_argument('--numheads', type=int, help='Number of virtual heads to create.')
 parser.add_argument('--deferred-fps', type=int, help='If given, render to a buffer and send updates only this many times per second')
 parser.add_argument('--tls-port', type=int, help='spice tls port', default=0)
 add_boolean('--disable-ticketing', help="do not require a client password")
@@ -104,7 +105,6 @@ parser.add_argument('--audio-fifo-dir', help="set fifo directory for playback au
 #Option "EnableImageCache" "True"
 #Option "EnableFallbackCache" "True"
 #Option "EnableSurfaces" "True"
-#Option "NumHeads" "4"
 #parser.add_argument('--playback-compression', choices=['0', '1'], help='enabled by default')
 #Option "SpiceDisableCopyPaste" "False"
 
@@ -266,6 +266,11 @@ for arg in var_args:
         else:
             a = str(a)
         os.environ['XSPICE_' + arg.upper()] = a
+
+# A few arguments don't follow the XSPICE_ convention - handle them manually
+if args.numheads:
+    os.environ['QXL_NUM_HEADS'] = str(args.numheads)
+
 
 display=""
 for arg in xorg_args:
