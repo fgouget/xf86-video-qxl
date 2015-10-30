@@ -4,6 +4,7 @@ Section "Device"
 
     # Enable regular port. Either this or SpiceTlsPort, or one of XSPICE_PORT or
     # XSPICE_TLS_PORT environment variables must be specified
+    # Specify 0 to disable the use of the regular port
     # default: 5900
     #Option "SpicePort" "5900"
 

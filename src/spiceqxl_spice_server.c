@@ -187,7 +187,6 @@ void xspice_set_spice_server_options(OptionInfoPtr options)
         exit(1);
     }
     printf("xspice: port = %d, tls_port = %d\n", port, tls_port);
-    spice_server_set_port(spice_server, port);
     if (disable_ticketing) {
         spice_server_set_noauth(spice_server);
     }
