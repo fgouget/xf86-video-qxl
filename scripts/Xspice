@@ -256,7 +256,7 @@ var_args = ['port', 'tls_port', 'disable_ticketing',
     'vdagent_uid', 'vdagent_gid']
 
 for arg in var_args:
-    if getattr(args, arg):
+    if getattr(args, arg) != None:
         # The Qxl code doesn't respect booleans, so pass them as 0/1
         a = getattr(args, arg)
         if a == True:
