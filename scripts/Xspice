@@ -90,9 +90,9 @@ parser.add_argument('--streaming-video', choices=['off', 'all', 'filter'],
 add_boolean('--ipv4-only')
 add_boolean('--ipv6-only')
 parser.add_argument('--vdagent', action='store_true', dest='vdagent_enabled', default=False, help='launch vdagent & vdagentd. They provide clipboard & resolution automation')
-parser.add_argument('--vdagent-virtio-path', default='/tmp/xspice-virtio', help='virtio socket path used by vdagentd')
-parser.add_argument('--vdagent-uinput-path', default='/tmp/xspice-uinput', help='uinput socket path used by vdagent')
-parser.add_argument('--vdagent-udcs-path', default='/tmp/xspice-vdagent', help='udcs socket path used by vdagent and vdagentd')
+parser.add_argument('--vdagent-virtio-path', help='virtio socket path used by vdagentd')
+parser.add_argument('--vdagent-uinput-path', help='uinput socket path used by vdagent')
+parser.add_argument('--vdagent-udcs-path', help='udcs socket path used by vdagent and vdagentd')
 parser.add_argument('--vdagentd-exec', help='path to spice-vdagentd (used with --vdagent)')
 parser.add_argument('--vdagent-exec', help='path to spice-vdagent (used with --vdagent)')
 parser.add_argument('--vdagent-no-launch', default=True, action='store_false', dest='vdagent_launch', help='do not launch vdagent & vdagentd, used for debugging or if some external script wants to take care of that')
@@ -257,6 +257,25 @@ EndSection
 
     """ % locals())
     cf.flush()
+
+if args.vdagent_enabled:
+    for f in [args.vdagent_udcs_path, args.vdagent_virtio_path, args.vdagent_uinput_path]:
+        if f and os.path.exists(f):
+            os.unlink(f)
+
+    if not temp_dir:
+        temp_dir  = tempfile.mkdtemp(prefix="Xspice-")
+        cleanup_dirs.append(temp_dir)
+
+    # Auto generate temporary files for vdagent
+    if not args.vdagent_udcs_path:
+        args.vdagent_udcs_path = temp_dir + "/vdagent.udcs"
+    if not args.vdagent_virtio_path:
+        args.vdagent_virtio_path = temp_dir + "/vdagent.virtio"
+    if not args.vdagent_uinput_path:
+        args.vdagent_uinput_path = temp_dir + "/vdagent.uinput"
+
+    cleanup_files.extend([args.vdagent_udcs_path, args.vdagent_virtio_path, args.vdagent_uinput_path])
 
 var_args = ['port', 'tls_port', 'disable_ticketing',
     'x509_dir', 'sasl', 'cacert_file', 'x509_cert_file',
