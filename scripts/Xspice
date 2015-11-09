@@ -169,12 +169,16 @@ if not args.xorg:
     error("Xorg missing")
 
 cleanup_files = []
+cleanup_dirs = []
 cleanup_processes = []
 
 def cleanup(*args):
     for f in cleanup_files:
         if os.path.exists(f):
             os.remove(f)
+    for d in cleanup_dirs:
+        if os.path.exists(d):
+            os.rmdir(d)
     for p in cleanup_processes:
         try:
             p.kill()
@@ -196,10 +200,17 @@ signal.signal(signal.SIGTERM, cleanup)
 atexit.register(cleanup)
 
 if args.auto:
-    cf = tempfile.NamedTemporaryFile(prefix="Xspice-", delete=True)
-    cleanup_files.append(cf.name + ".log")
-    args.config = cf.name
-    xorg_args = [ '-logfile', cf.name + ".log" ] + xorg_args
+    temp_dir  = tempfile.mkdtemp(prefix="Xspice-")
+    cleanup_dirs.append(temp_dir)
+
+    args.config = temp_dir + "/xorg.conf"
+    cleanup_files.append(args.config)
+    cf = open(args.config, "w+")
+
+    logfile = temp_dir + "/xorg.log"
+    cleanup_files.append(logfile)
+
+    xorg_args = [ '-logfile', logfile ] + xorg_args
     if args.audio_fifo_dir:
         options = 'Option "SpicePlaybackFIFODir"  "%s"' % args.audio_fifo_dir
     else:
