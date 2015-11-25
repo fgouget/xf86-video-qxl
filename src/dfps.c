@@ -128,6 +128,14 @@ static Bool unaccel (void)
     return FALSE;
 }
 
+static Bool is_main_pixmap(PixmapPtr pixmap)
+{
+    ScreenPtr screen = pixmap->drawable.pScreen;
+    if (screen && pixmap == screen->GetScreenPixmap(screen))
+        return TRUE;
+    return FALSE;
+}
+
 
 /* Establish a maximum number of disparate regions we'll track before we just
    treat the entire bounding rectangle as having changed.
@@ -200,7 +208,8 @@ static void dfps_solid (PixmapPtr pixmap, int x_1, int y_1, int x_2, int y_2)
     fbFill(&pixmap->drawable, info->pgc, x_1, y_1, x_2 - x_1, y_2 - y_1);
 
     /* Track the updated region */
-    dfps_update_box(&info->updated_region, x_1, x_2, y_1, y_2);
+    if (is_main_pixmap(pixmap))
+        dfps_update_box(&info->updated_region, x_1, x_2, y_1, y_2);
     return;
 }
 
@@ -252,7 +261,8 @@ static void dfps_copy (PixmapPtr dest,
     fbCopyArea(&info->copy_src->drawable, &dest->drawable, info->pgc, src_x1, src_y1, width, height, dest_x1, dest_y1);
 
     /* Update the tracking region */
-    dfps_update_box(&info->updated_region, dest_x1, dest_x1 + width, dest_y1, dest_y1 + height);
+    if (is_main_pixmap(dest))
+        dfps_update_box(&info->updated_region, dest_x1, dest_x1 + width, dest_y1, dest_y1 + height);
 }
 
 static void dfps_done_copy (PixmapPtr dest)
@@ -277,7 +287,8 @@ static Bool dfps_put_image (PixmapPtr dest, int x, int y, int w, int h,
     if (!(info = dfps_get_info (dest)))
         return FALSE;
 
-    dfps_update_box(&info->updated_region, x, x + w, y, y + h);
+    if (is_main_pixmap(dest))
+        dfps_update_box(&info->updated_region, x, x + w, y, y + h);
 
     fbPrepareAccess(dest);
     fbGetPixmapBitsData(dest, dst, dst_stride, dst_bpp);
@@ -299,7 +310,8 @@ static Bool dfps_prepare_access (PixmapPtr pixmap, RegionPtr region, uxa_access_
         if (!(info = dfps_get_info (pixmap)))
             return FALSE;
 
-        dfps_update_region(&info->updated_region, region);
+        if (is_main_pixmap(pixmap))
+            dfps_update_region(&info->updated_region, region);
     }
     return TRUE;
 }
