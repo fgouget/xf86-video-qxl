@@ -270,15 +270,22 @@ static Bool dfps_put_image (PixmapPtr dest, int x, int y, int w, int h,
                char *src, int src_pitch)
 {
     dfps_info_t *info;
+    FbBits *dst;
+    FbStride dst_stride;
+    int dst_bpp;
 
     if (!(info = dfps_get_info (dest)))
         return FALSE;
 
     dfps_update_box(&info->updated_region, x, x + w, y, y + h);
 
-    /* We can avoid doing the put image ourselves, as the uxa driver
-       will fall back and do it for us if we return false */
-    return FALSE;
+    fbPrepareAccess(dest);
+    fbGetPixmapBitsData(dest, dst, dst_stride, dst_bpp);
+    fbBlt((FbBits *) src, src_pitch / sizeof(FbStip), 0, dst + (y * dst_stride), dst_stride,
+           x * dst_bpp, w * dst_bpp, h, GXcopy, FB_ALLONES, dst_bpp, FALSE, FALSE);
+    fbFinishAccess(dest);
+
+    return TRUE;
 }
 
 
