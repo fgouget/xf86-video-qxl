@@ -350,6 +350,6 @@ void qxl_add_spice_display_interface(qxl_screen_t *qxl)
 
 void spiceqxl_display_monitors_config(qxl_screen_t *qxl)
 {
-    spice_qxl_monitors_config_async(&qxl->display_sin, (QXLPHYSICAL)qxl->monitors_config,
+    spice_qxl_monitors_config_async(&qxl->display_sin, physical_address(qxl, qxl->monitors_config, 0),
                                     MEMSLOT_GROUP, 0);
 }
