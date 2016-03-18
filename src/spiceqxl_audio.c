@@ -108,14 +108,18 @@ static inline void fifo_remove_data(struct fifo_data *f, unsigned char *dest, in
     int remain = f->size - remove_from;
 
     if (remain < len) {
-        memcpy(dest, f->buffer + remove_from, remain);
-        dest += remain;
+        if (dest) {
+            memcpy(dest, f->buffer + remove_from, remain);
+            dest += remain;
+        }
         len -= remain;
         f->len -= remain;
         remove_from = 0;
     }
 
-    memcpy(dest, f->buffer + remove_from, len);
+    if (dest) {
+        memcpy(dest, f->buffer + remove_from, len);
+    }
     f->len -= len;
 }
 
@@ -152,7 +156,9 @@ static void mix_in_fifos(qxl_screen_t *qxl)
     struct audio_data *data = qxl->playback_opaque;
     struct fifo_data *f;
 
-    memset(data->spice_buffer, 0, data->spice_buffer_bytes);
+    if (data->spice_buffer) {
+        memset(data->spice_buffer, 0, data->spice_buffer_bytes);
+    }
 
     if (data->fifo_count == 0)
         return;
@@ -164,8 +170,13 @@ static void mix_in_fifos(qxl_screen_t *qxl)
     /* Extra fifos need to be mixed in */
     for (i = 1; i < data->fifo_count; i++) {
         f = &data->fifos[i];
-        if (f->len > 0)
-            mix_in_one_fifo(f, (int16_t *) data->spice_buffer, data->spice_buffer_bytes);
+        if (f->len > 0) {
+            if (data->spice_buffer) {
+                mix_in_one_fifo(f, (int16_t *) data->spice_buffer, data->spice_buffer_bytes);
+            } else {
+                fifo_remove_data(f, NULL, min(data->spice_buffer_bytes, f->len));
+            }
+        }
     }
 }
 
@@ -230,11 +241,10 @@ static void process_fifos(qxl_screen_t *qxl, struct audio_data *data, int maxlen
         if (! data->spice_buffer) {
             uint32_t chunk_frames;
             spice_server_playback_get_buffer(&qxl->playback_sin, &data->spice_buffer, &chunk_frames);
-            data->spice_buffer_bytes = chunk_frames * sizeof(int16_t) * SPICE_INTERFACE_PLAYBACK_CHAN;
+            data->spice_buffer_bytes = data->spice_buffer ?
+                chunk_frames * sizeof(int16_t) * SPICE_INTERFACE_PLAYBACK_CHAN :
+                data->period_bytes * READ_BUFFER_PERIODS;
         }
-
-        if (! data->spice_buffer)
-            break;
 
         if (! can_feed(data))
             break;
@@ -244,8 +254,10 @@ static void process_fifos(qxl_screen_t *qxl, struct audio_data *data, int maxlen
         did_feed(data, data->spice_buffer_bytes);
         maxlen -= data->spice_buffer_bytes;
 
-        spice_server_playback_put_samples(&qxl->playback_sin, data->spice_buffer);
-        data->spice_buffer = NULL;
+        if (data->spice_buffer) {
+            spice_server_playback_put_samples(&qxl->playback_sin, data->spice_buffer);
+            data->spice_buffer = NULL;
+        }
     }
 
     watch_or_wait(qxl);
