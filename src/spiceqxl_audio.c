@@ -46,6 +46,7 @@
        and feed ahead into the Spice server (up to FEED_BUFFER_PERIODS).
 */
 
+#define IDLE_MS              300
 #define PERIOD_MS            10
 #define READ_BUFFER_PERIODS  2
 #define FEED_BUFFER_PERIODS  8
@@ -72,7 +73,7 @@ struct audio_data {
     int fifo_count;
     int closed_fifos;
     SpiceTimer *wall_timer;
-    int wall_timer_live;
+    int wall_timer_type;
     int dir_watch;
     int fifo_dir_watch;
     SpiceWatch *fifo_dir_qxl_watch;
@@ -279,9 +280,9 @@ static void read_from_fifos(int fd, int event, void *opaque)
     int i;
     int maxlen = 0;
 
-    if (data->wall_timer_live) {
+    if (data->wall_timer_type) {
         qxl->core->timer_cancel(data->wall_timer);
-        data->wall_timer_live = 0;
+        data->wall_timer_type = 0;
     }
 
     for (i = 0; i < data->fifo_count; i++) {
@@ -333,11 +334,15 @@ static void read_from_fifos(int fd, int event, void *opaque)
     if (!process_fifos(qxl, data, maxlen)) {
         /* There is still some fifo data to process */
         qxl->core->timer_start(data->wall_timer, PERIOD_MS);
-        data->wall_timer_live = 1;
+        data->wall_timer_type = PERIOD_MS;
 
     } else if (data->fifo_count) {
         /* All the fifo data was processed. Wait for more */
         start_watching(qxl);
+
+        /* But none may arrive so stop processing if that happens */
+        qxl->core->timer_start(data->wall_timer, IDLE_MS);
+        data->wall_timer_type = IDLE_MS;
 
     } else if (data->active) {
         /* There is no open fifo anymore */
@@ -361,14 +366,23 @@ static void start_watching(qxl_screen_t *qxl)
     }
 }
 
+/* a helper for read_from_fifos() */
 static void wall_ticker(void *opaque)
 {
     qxl_screen_t *qxl = opaque;
     struct audio_data *data = qxl->playback_opaque;
 
-    data->wall_timer_live = 0;
-
-    read_from_fifos(-1, 0, qxl);
+    if (data->wall_timer_type == IDLE_MS) {
+        /* The audio is likely paused in the application(s) */
+        if (data->active) {
+            spice_server_playback_stop(&qxl->playback_sin);
+            data->active = 0;
+        }
+        data->wall_timer_type = 0;
+    } else {
+        data->wall_timer_type = 0;
+        read_from_fifos(-1, 0, qxl);
+    }
 }
 
 #if defined(HAVE_SYS_INOTIFY_H)
