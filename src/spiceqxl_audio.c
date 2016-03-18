@@ -151,6 +151,7 @@ static void mix_in_one_fifo(struct fifo_data *f, int16_t *out, int len)
     free(in);
 }
 
+/* a helper for process_fifos() */
 static void mix_in_fifos(qxl_screen_t *qxl)
 {
     int i;
@@ -181,6 +182,7 @@ static void mix_in_fifos(qxl_screen_t *qxl)
     }
 }
 
+/* a helper for process_fifos() */
 static int can_feed(struct audio_data *data)
 {
     struct timeval end, diff;
@@ -202,6 +204,7 @@ static int can_feed(struct audio_data *data)
     return 0;
 }
 
+/* a helper for process_fifos() */
 static void did_feed(struct audio_data *data, int len)
 {
     struct timeval diff;
@@ -216,8 +219,7 @@ static void did_feed(struct audio_data *data, int len)
     timeradd(&data->fed_through_time, &diff, &data->fed_through_time);
 }
 
-static void watch_or_wait(qxl_screen_t *qxl);
-static void process_fifos(qxl_screen_t *qxl, struct audio_data *data, int maxlen)
+static int process_fifos(qxl_screen_t *qxl, struct audio_data *data, int maxlen)
 {
     while (maxlen > 0) {
         if (! data->spice_buffer) {
@@ -228,8 +230,9 @@ static void process_fifos(qxl_screen_t *qxl, struct audio_data *data, int maxlen
                 data->period_bytes * READ_BUFFER_PERIODS;
         }
 
-        if (! can_feed(data))
-            break;
+        if (! can_feed(data)) {
+            return FALSE;
+        }
 
         mix_in_fifos(qxl);
 
@@ -241,8 +244,7 @@ static void process_fifos(qxl_screen_t *qxl, struct audio_data *data, int maxlen
             data->spice_buffer = NULL;
         }
     }
-
-    watch_or_wait(qxl);
+    return TRUE;
 }
 
 
@@ -269,6 +271,7 @@ static void condense_fifos(qxl_screen_t *qxl)
     }
 }
 
+static void start_watching(qxl_screen_t *qxl);
 static void read_from_fifos(int fd, int event, void *opaque)
 {
     qxl_screen_t *qxl = opaque;
@@ -316,9 +319,21 @@ static void read_from_fifos(int fd, int event, void *opaque)
         condense_fifos(qxl);
     }
 
-    process_fifos(qxl, data, maxlen);
+    if (!process_fifos(qxl, data, maxlen)) {
+        if (! data->wall_timer_live) {
+            qxl->core->timer_start(data->wall_timer, PERIOD_MS);
+            data->wall_timer_live = 1;
+        }
+    } else {
+        start_watching(qxl);
+        if (data->wall_timer_live) {
+            qxl->core->timer_cancel(data->wall_timer);
+        }
+        data->wall_timer_live = 0;
+    }
 }
 
+/* a helper for read_from_fifos() */
 static void start_watching(qxl_screen_t *qxl)
 {
     struct audio_data *data = qxl->playback_opaque;
@@ -330,24 +345,6 @@ static void start_watching(qxl_screen_t *qxl)
             continue;
 
         f->watch = qxl->core->watch_add(f->fd, SPICE_WATCH_EVENT_READ, read_from_fifos, qxl);
-    }
-}
-
-static void watch_or_wait(qxl_screen_t *qxl)
-{
-    struct audio_data *data = qxl->playback_opaque;
-
-    if (! can_feed(data)) {
-        if (! data->wall_timer_live) {
-            qxl->core->timer_start(data->wall_timer, PERIOD_MS);
-            data->wall_timer_live++;
-        }
-    }
-    else {
-        start_watching(qxl);
-        if (data->wall_timer_live)
-            qxl->core->timer_cancel(data->wall_timer);
-        data->wall_timer_live = 0;
     }
 }
 
