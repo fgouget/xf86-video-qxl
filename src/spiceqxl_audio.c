@@ -63,6 +63,7 @@ struct fifo_data {
 
 struct audio_data {
     struct fifo_data fifos[MAX_FIFOS];
+    int active;
     uint32_t *spice_buffer;
     int spice_buffer_bytes;
     int period_bytes;
@@ -247,7 +248,6 @@ static int process_fifos(qxl_screen_t *qxl, struct audio_data *data, int maxlen)
     return TRUE;
 }
 
-
 /* a helper for read_from_fifos() */
 static void condense_fifos(qxl_screen_t *qxl)
 {
@@ -278,6 +278,12 @@ static void read_from_fifos(int fd, int event, void *opaque)
     struct audio_data *data = qxl->playback_opaque;
     int i;
     int maxlen = 0;
+
+    if (data->wall_timer_live) {
+        qxl->core->timer_cancel(data->wall_timer);
+        data->wall_timer_live = 0;
+    }
+
     for (i = 0; i < data->fifo_count; i++) {
         struct fifo_data *f = &data->fifos[i];
 
@@ -319,17 +325,24 @@ static void read_from_fifos(int fd, int event, void *opaque)
         condense_fifos(qxl);
     }
 
+    if (maxlen && !data->active) {
+        spice_server_playback_start(&qxl->playback_sin);
+        data->active = 1;
+    }
+
     if (!process_fifos(qxl, data, maxlen)) {
-        if (! data->wall_timer_live) {
-            qxl->core->timer_start(data->wall_timer, PERIOD_MS);
-            data->wall_timer_live = 1;
-        }
-    } else {
+        /* There is still some fifo data to process */
+        qxl->core->timer_start(data->wall_timer, PERIOD_MS);
+        data->wall_timer_live = 1;
+
+    } else if (data->fifo_count) {
+        /* All the fifo data was processed. Wait for more */
         start_watching(qxl);
-        if (data->wall_timer_live) {
-            qxl->core->timer_cancel(data->wall_timer);
-        }
-        data->wall_timer_live = 0;
+
+    } else if (data->active) {
+        /* There is no open fifo anymore */
+        spice_server_playback_stop(&qxl->playback_sin);
+        data->active = 0;
     }
 }
 
@@ -459,8 +472,6 @@ static void audio_initialize (qxl_screen_t *qxl)
         data->fifos[i].size = data->period_bytes * READ_BUFFER_PERIODS;
         data->fifos[i].buffer = calloc(1, data->fifos[i].size);
     }
-
-    spice_server_playback_start(&qxl->playback_sin);
 }
 
 
