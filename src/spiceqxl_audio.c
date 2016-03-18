@@ -69,6 +69,7 @@ struct audio_data {
     struct timeval fed_through_time;
     int remainder;
     int fifo_count;
+    int closed_fifos;
     SpiceTimer *wall_timer;
     int wall_timer_live;
     int dir_watch;
@@ -215,25 +216,6 @@ static void did_feed(struct audio_data *data, int len)
     timeradd(&data->fed_through_time, &diff, &data->fed_through_time);
 }
 
-static void condense_fifos(struct audio_data *data)
-{
-    int i;
-    struct fifo_data tmp;
-
-    for (i = 0; i < data->fifo_count; i++) {
-        struct fifo_data *f = &data->fifos[i];
-        if (f->fd == -1 && f->len == 0) {
-            if ((i + 1) < data->fifo_count) {
-                tmp = *f;
-                *f = data->fifos[data->fifo_count - 1];
-                data->fifos[data->fifo_count - 1] = tmp;
-            }
-            data->fifo_count--;
-            i--;
-        }
-    }
-}
-
 static void watch_or_wait(qxl_screen_t *qxl);
 static void process_fifos(qxl_screen_t *qxl, struct audio_data *data, int maxlen)
 {
@@ -263,6 +245,30 @@ static void process_fifos(qxl_screen_t *qxl, struct audio_data *data, int maxlen
     watch_or_wait(qxl);
 }
 
+
+/* a helper for read_from_fifos() */
+static void condense_fifos(qxl_screen_t *qxl)
+{
+    struct audio_data *data = qxl->playback_opaque;
+    int i;
+
+    for (i = 0; i < data->fifo_count; i++) {
+        struct fifo_data *f = &data->fifos[i];
+        if (f->fd == -1 && f->len == 0) {
+            if ((i + 1) < data->fifo_count) {
+                struct fifo_data tmp = *f;
+                *f = data->fifos[data->fifo_count - 1];
+                data->fifos[data->fifo_count - 1] = tmp;
+            }
+            data->fifo_count--;
+            i--;
+            if (!--data->closed_fifos) {
+                break;
+            }
+        }
+    }
+}
+
 static void read_from_fifos(int fd, int event, void *opaque)
 {
     qxl_screen_t *qxl = opaque;
@@ -289,6 +295,10 @@ static void read_from_fifos(int fd, int event, void *opaque)
                 f->watch = NULL;
                 close(f->fd);
                 f->fd = -1;
+                /* Setting closed_fifos will only have an effect once
+                 * the closed fifo's buffer is empty.
+                 */
+                data->closed_fifos++;
             }
 
             if (f->size == f->len) {
@@ -300,6 +310,10 @@ static void read_from_fifos(int fd, int event, void *opaque)
 
         if (f->len > maxlen)
             maxlen = f->len;
+    }
+
+    if (data->closed_fifos) {
+        condense_fifos(qxl);
     }
 
     process_fifos(qxl, data, maxlen);
@@ -344,8 +358,6 @@ static void wall_ticker(void *opaque)
 
     data->wall_timer_live = 0;
 
-    condense_fifos(data);
-
     read_from_fifos(-1, 0, qxl);
 }
 
@@ -357,8 +369,6 @@ static void handle_one_change(qxl_screen_t *qxl, struct inotify_event *e)
         struct audio_data *data = qxl->playback_opaque;
         struct fifo_data *f;
         char *fname;
-
-        condense_fifos(data);
 
         f = &data->fifos[data->fifo_count];
 
