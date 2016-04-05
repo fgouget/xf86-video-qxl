@@ -171,7 +171,6 @@ static SpiceTimer* timer_add(SpiceTimerFunc func, void *opaque)
 {
     SpiceTimer *timer = calloc(sizeof(SpiceTimer), 1);
 
-    timer->xorg_timer = TimerSet(NULL, 0, 1e9 /* TODO: infinity? */, xorg_timer_callback, timer);
     timer->func = func;
     timer->opaque = opaque;
     return timer;
@@ -179,7 +178,8 @@ static SpiceTimer* timer_add(SpiceTimerFunc func, void *opaque)
 
 static void timer_start(SpiceTimer *timer, uint32_t ms)
 {
-    TimerSet(timer->xorg_timer, 0 /* flags */, ms, xorg_timer_callback, timer);
+    timer->xorg_timer = TimerSet(timer->xorg_timer, 0 /* flags */,
+                                 ms, xorg_timer_callback, timer);
 }
 
 static void timer_cancel(SpiceTimer *timer)
