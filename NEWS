@@ -1,3 +1,16 @@
+Major changes in 0.1.5
+======================
+
+Fix X restarts when kms is in use with multiple monitors
+Various Xspice fixes and improvements (agent fixes, command line handling,
+documentation, delayed fps, audio playback)
+Fix Xspice crashing after 11 days
+Add --numheads argument to Xspice script
+Allow to setup video codec for streaming when using Xspice (requires
+spice-server 0.13.2)
+X.Org 1.19 fixes (Xspice is still non-functional with it)
+Fix compilation on arches which do not have outb (aarch64)
+
 Major changes in 0.1.4
 ======================
 Added smartcard support to XSpice
