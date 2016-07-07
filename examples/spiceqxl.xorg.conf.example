@@ -52,6 +52,13 @@ Section "Device"
     # default: filter
     #Option "SpiceStreamingVideo" ""
 
+    # Set video codecs to use.  Provide a semicolon list of
+    # codecs, in preference order.  Each codec requires an encoder
+    # which can be one of spice or gstreamer, and then a codec type,
+    # for instance mjpeg or vp8. The default is spice:mjpeg,
+    # which uses the builtin mjpeg encoder.
+    #Option "SpiceVideoCodecs" ""
+
     # Set zlib glz wan compression. Options are auto, never, always.
     # default: auto
     #Option "SpiceZlibGlzWanCompression" ""
