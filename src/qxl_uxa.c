@@ -414,6 +414,8 @@ qxl_create_pixmap (ScreenPtr screen, int w, int h, int depth, unsigned usage)
     ErrorF ("Create pixmap: %d %d @ %d (usage: %d)\n", w, h, depth, usage);
 #endif
 
+    if (qxl->kms_enabled)
+	goto fallback;
     if (uxa_swapped_out (screen))
 	goto fallback;
 
