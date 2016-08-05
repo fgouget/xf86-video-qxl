@@ -221,12 +221,16 @@ qxl_has_composite (qxl_screen_t *qxl)
 {
 #ifdef XF86DRM_MODE
     if (qxl->kms_enabled) {
+#if 0 /* KMS Composite support seems broken - needs better hw support */
 	static Bool result, checked;
 	if (!checked) {
 	    result = qxl_kms_check_cap(qxl, SPICE_DISPLAY_CAP_COMPOSITE);
 	    checked = TRUE;
 	}
 	return result;
+#else
+	return FALSE;
+#endif
     }
 #endif
 #ifndef XSPICE
@@ -244,12 +248,16 @@ qxl_has_a8_surfaces (qxl_screen_t *qxl)
 {
 #ifdef XF86DRM_MODE
     if (qxl->kms_enabled) {
+#if 0 /* KMS Composite support seems broken - needs better hw support */
         static Bool result, checked;
 	if (!checked) {
             result = qxl_kms_check_cap(qxl, SPICE_DISPLAY_CAP_A8_SURFACE);
 	    checked = TRUE;
 	}
 	return result;
+#else
+	return FALSE;
+#endif
     }
 #endif
 #ifndef XSPICE
