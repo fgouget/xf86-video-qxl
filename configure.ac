@@ -60,8 +60,14 @@ XORG_DRIVER_CHECK_EXT(RENDER, renderproto)
 XORG_DRIVER_CHECK_EXT(XV, videoproto)
 XORG_DRIVER_CHECK_EXT(XFreeXDGA, xf86dgaproto)
 
+# We can use either version 1 or version 2 of libXfont
+PKG_CHECK_EXISTS(xfont2,
+                 [xfont_pc=xfont2
+                  AC_DEFINE(HAVE_XFONT2,1,[Version 2 of the libXfont library])],
+                 [xfont_pc=xfont])
+
 # Obtain compiler/linker options for the driver dependencies
-PKG_CHECK_MODULES(XORG, [xorg-server >= 1.0.99.901] xproto fontsproto xfont $REQUIRED_MODULES)
+PKG_CHECK_MODULES(XORG, [xorg-server >= 1.0.99.901] xproto fontsproto $xfont_pc $REQUIRED_MODULES)
 
 
 save_CFLAGS="$CFLAGS"
