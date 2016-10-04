@@ -530,7 +530,6 @@ qxl_create_primary(qxl_screen_t *qxl)
 Bool
 qxl_resize_primary_to_virtual (qxl_screen_t *qxl)
 {
-    ScreenPtr pScreen;
     long new_surface0_size;
 
     if ((qxl->primary_mode.x_res == qxl->virtual_x &&
@@ -566,9 +565,9 @@ qxl_resize_primary_to_virtual (qxl_screen_t *qxl)
     qxl->primary = qxl_create_primary(qxl);
     qxl->bytes_per_pixel = (qxl->pScrn->bitsPerPixel + 7) / 8;
     
-    pScreen = qxl->pScrn->pScreen;
-    if (pScreen)
+    if (qxl->screen_resources_created)
     {
+        ScreenPtr pScreen = qxl->pScrn->pScreen;
 	PixmapPtr root = pScreen->GetScreenPixmap (pScreen);
 
         if (qxl->deferred_fps <= 0)
@@ -645,6 +644,7 @@ qxl_create_screen_resources (ScreenPtr pScreen)
     qxl_create_desired_modes (qxl);
     qxl_update_edid (qxl);
     
+    qxl->screen_resources_created = TRUE;
     return TRUE;
 }
 

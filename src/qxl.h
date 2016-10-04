@@ -234,6 +234,7 @@ struct _qxl_screen_t
     struct qxl_ring *		cursor_ring;
     struct qxl_ring *		release_ring;
 
+    Bool                        screen_resources_created;
     int                         device_primary;
     struct qxl_bo *             primary_bo;
     int				num_modes;

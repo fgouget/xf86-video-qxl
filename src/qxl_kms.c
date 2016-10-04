@@ -235,6 +235,7 @@ qxl_create_screen_resources_kms(ScreenPtr pScreen)
     if (!uxa_resources_init (pScreen))
 	return FALSE;
     
+    qxl->screen_resources_created = TRUE;
     return TRUE;
 }
 
