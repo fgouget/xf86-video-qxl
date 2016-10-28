@@ -68,7 +68,8 @@ PKG_CHECK_EXISTS(xfont2,
 
 # Obtain compiler/linker options for the driver dependencies
 PKG_CHECK_MODULES(XORG, [xorg-server >= 1.0.99.901] xproto fontsproto $xfont_pc $REQUIRED_MODULES)
-
+# Check for xorg 1.19 as XSpice is currently not working with it
+PKG_CHECK_EXISTS([xorg-server >= 1.18.99], [has_xorg119=yes])
 
 save_CFLAGS="$CFLAGS"
 CFLAGS="$XORG_CFLAGS"
@@ -139,7 +140,10 @@ if test "x$enable_xspice" = "xyes"; then
         AC_SUBST(SPICE_CFLAGS)
         AC_SUBST(SPICE_LIBS)
     ],
-)
+    )
+    if test x"${enable_xspice}" = "xyes" && test x"${has_xorg119}" = "xyes"; then
+        AC_MSG_ERROR("XSpice cannot currently work against X.Org 1.19")
+    fi
 else
     enable_xspice=no
 fi
