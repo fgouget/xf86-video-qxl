@@ -274,7 +274,7 @@ static void xspice_block_handler(pointer data, OSTimePtr timeout, pointer readma
 }
 
 /*
- * xserver only calles wakeup_handler with the read fd_set, so we
+ * xserver only calls wakeup_handler with the read fd_set, so we
  * must either patch it or do a polling select ourselves, this is the
  * later approach. Since we are already doing a polling select, we
  * already select on all (we could avoid selecting on the read since
