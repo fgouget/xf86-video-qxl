@@ -52,54 +52,64 @@ wan_compression_options = ['auto', 'never', 'always']
 parser = argparse.ArgumentParser("Xspice",
     description="X and Spice server. example usage: Xspice --port 5900 --disable-ticketing :1.0",
     usage="Xspice [Xspice and Xorg options intermixed]",
-    epilog="Any options not parsed by Xspice get passed to Xorg as is.")
-parser.add_argument('--xorg', default=which('Xorg'))
-parser.add_argument('--auto', action='store_true', help='Automatically create a temporary xorg.conf and start the X server')
-parser.add_argument('--xsession', help='If given, will run after Xorg launch.  Should be a program like x-session-manager')
-parser.add_argument('--config', default='spiceqxl.xorg.conf')
+    epilog="Any option not parsed by Xspice gets passed to Xorg as is.")
+
+# X-related options
+parser.add_argument('--xorg', default=which('Xorg'), help='specify the path to the Xorg binary')
+parser.add_argument('--config', default='spiceqxl.xorg.conf', help='specify the path to the Xspice configuration')
+parser.add_argument('--auto', action='store_true', help='automatically create a temporary xorg.conf and start the X server')
+parser.add_argument('--xsession', help='if given, will run after Xorg launch.  Should be a program like x-session-manager')
+
+# Network and security options
+add_boolean('--disable-ticketing', help="do not require a client password")
+parser.add_argument('--password', help="set the password required to connect to the server")
+add_boolean('--sasl', help="use SASL to authenticate to the server")
 # Don't use any options that are already used by Xorg (unless we must)
 # specifically, don't use -p and -s.
-parser.add_argument('--port', type=int, help='standard spice port')
-parser.add_argument('--exit-on-disconnect', action='store_true', help='Exit the X server when any client disconnects')
-parser.add_argument('--numheads', type=int, help='Number of virtual heads to create.')
-parser.add_argument('--deferred-fps', type=int, help='If given, render to a buffer and send updates only this many times per second')
-parser.add_argument('--tls-port', type=int, help='spice tls port', default=0)
-add_boolean('--disable-ticketing', help="do not require a client password")
-add_boolean('--sasl', help="enable sasl")
-parser.add_argument('--x509-dir', help="x509 directory for tls")
-parser.add_argument('--cacert-file', help="ca certificate file for tls")
-parser.add_argument('--x509-cert-file', help="server certificate file for tls")
-parser.add_argument('--x509-key-file', help="server key file for tls")
-parser.add_argument('--x509-key-password', help="key file password for tls")
-parser.add_argument('--tls-ciphers')
-parser.add_argument('--dh-file')
-parser.add_argument('--password', help="set password required to connect to server")
+parser.add_argument('--port', type=int, help="use the specified port as Spice's regular unencrypted port")
+parser.add_argument('--tls-port', type=int, help='use the specified port as a TLS (encrypted) port', default=0)
+parser.add_argument('--x509-dir', help="set the directory where the CA certificate, server key and server certificate are searched for TLS, using the same predefined names QEMU uses")
+parser.add_argument('--cacert-file', help="set the CA certificate file location for TLS")
+parser.add_argument('--x509-key-file', help="set the server key file location for TLS")
+parser.add_argument('--x509-key-password', help="set the server key's password for TLS")
+parser.add_argument('--x509-cert-file', help="set the server certificate file location for TLS")
+parser.add_argument('--dh-file', help="set the server DH file location for TLS")
+parser.add_argument('--tls-ciphers', help="set the TLS ciphers preference order")
+add_boolean('--ipv4-only', help="only accept IP v4 connections")
+add_boolean('--ipv6-only', help="only accept IP v6 connections")
+parser.add_argument('--exit-on-disconnect', action='store_true', help='exit the X server when any client disconnects')
+
+# Monitor configuration options
+parser.add_argument('--numheads', type=int, help='number of virtual heads to create')
+
+# Compression options
+parser.add_argument('--jpeg-wan-compression',
+                    choices=wan_compression_options,
+                    help="set jpeg wan compression")
+parser.add_argument('--zlib-glz-wan-compression',
+                    choices=wan_compression_options,
+                    help="set zlib glz wan compressions")
 parser.add_argument('--image-compression',
                     choices = ['off', 'auto_glz', 'auto_lz', 'quic',
                                'glz', 'lz'],
-                    help='auto_glz by default')
-parser.add_argument('--jpeg-wan-compression',
-                    choices=wan_compression_options,
-                    help='auto by default')
-parser.add_argument('--zlib-glz-wan-compression',
-                    choices=wan_compression_options,
-                    help='auto by default')
+                    help="set image compression")
+parser.add_argument('--deferred-fps', type=int, help='if non zero, the driver will render all operations to the frame buffer, and keep track of a changed rectangle list. The changed rectangles will be transmitted at the rate requested (e.g. 10 frames per second). This can dramatically reduce network bandwidth for some use cases')
 # TODO - sound support
 parser.add_argument('--streaming-video', choices=['off', 'all', 'filter'],
-                    help='filter by default')
-parser.add_argument('--video-codecs', help="Sets a semicolon-separated list of preferred video codecs to use. Each takes the form encoder:codec, with spice:mjpeg being the default and other options being provided by gstreamer for the mjpeg, vp8 and h264 codecs.")
-add_boolean('--ipv4-only')
-add_boolean('--ipv6-only')
+                    help='set the streaming video method')
+parser.add_argument('--video-codecs', help='set a semicolon-separated list of preferred video codecs to use. Each takes the form encoder:codec, with spice:mjpeg being the default and other options being provided by gstreamer for the mjpeg, vp8 and h264 codecs')
+
+# VDAgent options
 parser.add_argument('--vdagent', action='store_true', dest='vdagent_enabled', default=False, help='launch vdagent & vdagentd. They provide clipboard & resolution automation')
 parser.add_argument('--vdagent-virtio-path', help='virtio socket path used by vdagentd')
 parser.add_argument('--vdagent-uinput-path', help='uinput socket path used by vdagent')
-parser.add_argument('--vdagent-udcs-path', help='udcs socket path used by vdagent and vdagentd')
+parser.add_argument('--vdagent-udcs-path', help='Unix domain socket path used by vdagent and vdagentd')
 parser.add_argument('--vdagentd-exec', help='path to spice-vdagentd (used with --vdagent)')
 parser.add_argument('--vdagent-exec', help='path to spice-vdagent (used with --vdagent)')
 parser.add_argument('--vdagent-no-launch', default=True, action='store_false', dest='vdagent_launch', help='do not launch vdagent & vdagentd, used for debugging or if some external script wants to take care of that')
 parser.add_argument('--vdagent-uid', default=str(os.getuid()), help='set vdagent user id. changing it makes sense only in conjunction with --vdagent-no-launch')
 parser.add_argument('--vdagent-gid', default=str(os.getgid()), help='set vdagent group id. changing it makes sense only in conjunction with --vdagent-no-launch')
-parser.add_argument('--audio-fifo-dir', help="set fifo directory for playback audio. designed to work with PulseAudio's module-pipe-sink")
+parser.add_argument('--audio-fifo-dir', help="if a directory is given, any file in that directory will be read for audio data to be sent to the client. This is designed to work with PulseAudio's module-pipe-sink")
 
 #TODO
 #Option "SpiceAddr" ""

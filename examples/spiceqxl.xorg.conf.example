@@ -2,111 +2,126 @@ Section "Device"
     Identifier "XSPICE"
     Driver "spiceqxl"
 
-    # Enable regular port. Either this or SpiceTlsPort, or one of XSPICE_PORT or
-    # XSPICE_TLS_PORT environment variables must be specified
+    # ---- Network and security options
+
+    # Do not require a client password.
+    # default: False
+    #Option "SpiceDisableTicketing" "False"
+
+    # Set the password required to connect to the Spice server.
+    #Option "SpicePassword" ""
+
+    # Enable usage of SASL supported by the spice-gtk client. Not required,
+    # default: False
+    #Option "SpiceSasl" "False"
+
+    # Use Spice's regular unencrypted port. One of SpicePort or SpiceTlsPort
+    # must be specified. SpicePort can also be set through the XSPICE_PORT
+    # environment variable or the --port Xspice option.
     # Specify 0 to disable the use of the regular port
     # default: 5900
     #Option "SpicePort" "5900"
 
-    # Enable a TLS (encrypted) port. Either this or SpicePort must be specified,
-    # either here or via environment varialbes or via xspice --port or --tls-port
-    #Option "SpiceTlsPort" "5901"
-    
-    # Listen to a specific interface. Default is to listen to all (0.0.0.0)
-    #Option "SpiceAddr" ""
+    # Use a TLS (encrypted) port. One of SpicePort or SpiceTlsPort must be
+    # specified. SpiceTlsPort can also be set through the XSPICE_TLS_PORT
+    # environment variable or the --tls-port Xspice option.
+    #Option "SpiceTlsPort" "5900"
 
-    # Enable usage of SASL supported by spice-gtk client. Not required,
-    # default: False
-    #Option "SpiceSasl" "True"
-
-    # Do not request any password from client
-    #Option "SpiceDisableTicketing" "0"
-
-    # Set directory where cacert, server key and server cert are searched
-    # using the same predefined names qemu uses:
+    # Set the directory where the CA certificate, server key and server
+    # certificate are searched for TLS, using the same predefined names QEMU
+    # uses:
     #   cacert.pem, server-key.pem, server-cert.pem
     #Option "SpiceX509Dir" ""
 
-    # Set password client will be required to produce.
-    #Option "SpicePassword" ""
-
-    # Set spice server key file.
-    #Option "SpiceX509KeyFile" ""
-
-    # Set cert file location.
-    #Option "SpiceX509CertFile" ""
-
-    # Set key file password.
-    #Option "SpiceX509KeyPassword" ""
-
-    # Set tls ciphers used.
-    #Option "SpiceTlsCiphers" ""
-
-    # Set cacert file.
+    # Set the CA certificate file location for TLS.
     #Option "SpiceCacertFile" ""
 
-    # Set dh file used.
+    # Set the server key file location for TLS.
+    #Option "SpiceX509KeyFile" ""
+
+    # Set the server key's password for TLS.
+    #Option "SpiceX509KeyPassword" ""
+
+    # Set the server certificate file location for TLS.
+    #Option "SpiceX509CertFile" ""
+
+    # Set the server DH file location for TLS.
     #Option "SpiceDhFile" ""
 
-    # Set streaming video method. Options are filter, off, all
-    # default: filter
-    #Option "SpiceStreamingVideo" ""
+    # Set the TLS ciphers preference order.
+    #Option "SpiceTlsCiphers" ""
 
-    # Set video codecs to use.  Provide a semicolon list of
-    # codecs, in preference order.  Each codec requires an encoder
-    # which can be one of spice or gstreamer, and then a codec type,
-    # for instance mjpeg or vp8. The default is spice:mjpeg,
-    # which uses the builtin mjpeg encoder.
-    #Option "SpiceVideoCodecs" ""
+    # Listen to a specific interface.
+    # default: Listen to all (0.0.0.0).
+    #Option "SpiceAddr" ""
+
+    # Set to True to only listen on IPv4 interfaces.
+    # default: False
+    #Option "SpiceIPV4Only" "False"
+
+    # Set to True to only listen on IPv6 interfaces.
+    # default: False
+    #Option "SpiceIPV6Only" "False"
+
+    # If set, the Spice server will exit when the first client disconnects.
+    # default: False
+    #Option "SpiceExitOnDisconnect" "True"
+
+
+    # ---- Monitor configuration options
+
+    # The number of heads to allocate by default.
+    # default: 4
+    #Option "NumHeads" "4"
+
+
+    # ---- Compression options
 
     # Set zlib glz wan compression. Options are auto, never, always.
     # default: auto
     #Option "SpiceZlibGlzWanCompression" ""
 
-    # Set jpeg wan compression. Options are auto, never, always
+    # Set jpeg wan compression. Options are auto, never, always.
     # default: auto
     #Option "SpiceJpegWanCompression" ""
 
-    # Set image compression. Options are off,auto_glz,auto_lz,quic,glz,lz.
+    # Set image compression. Options are off, auto_glz, auto_lz, quic, glz, lz.
     # default: auto_glz
     #Option "SpiceImageCompression" ""
 
-    # Set to true to only listen on ipv4 interfaces.
-    # default: False
-    #Option "SpiceIPV4Only" ""
-
-    # Set to true to only listen on ipv6 interfaces.
-    # default: False
-    #Option "SpiceIPV6Only" ""
-
     # If non zero, the driver will render all operations to the frame buffer,
-    #  and keep track of a changed rectangle list.  The changed rectangles
-    #  will be transmitted at the rate requested (e.g. 10 Frames Per Second)
+    # and keep track of a changed rectangle list. The changed rectangles
+    # will be transmitted at the rate requested (e.g. 10 frames per second).
     # This can dramatically reduce network bandwidth for some use cases.
     #Option "SpiceDeferredFPS" "10"
 
-    # If set, the Spice Server will exit when the first client disconnects
-    #Option "SpiceExitOnDisconnect" "1"
+    # Set the streaming video method. Options are filter, off, all.
+    # default: filter
+    #Option "SpiceStreamingVideo" ""
 
-    # Enable caching of images directly written with uxa->put_image
+    # Sets a semicolon-separated list of preferred video codecs.
+    # Each takes the form encoder:codec, with spice:mjpeg being the default,
+    # and other options being provided by gstreamer for the mjpeg, vp8 and h264
+    # codecs.
+    #Option "SpiceVideoCodecs" ""
+
+    # Enable caching of images directly written with uxa->put_image.
     # default: True
     #Option "EnableImageCache" "True"
 
-    # Enable caching of images created by uxa->prepare_access
+    # Enable caching of images created by uxa->prepare_access.
     # default: True
     #Option "EnableFallbackCache" "True"
 
-    # Enable the use of off screen srufaces
+    # Enable the use of off-screen surfaces.
     # default: True
     #Option "EnableSurfaces" "True"
 
-    # The number of heads to allocate by default
-    # default: 4
-    #Option "NumHeads" "4"
 
-    #--------------------------------------------------------------
+    # ---- Xspice-specific buffer options
+
     # Buffer Size notes:
-    #  The following buffer sizes are used for Xspice only
+    #  The following buffer sizes are used for Xspice only.
     #  If you are using the DFPS mode, surface ram is not used,
     #  and you can set it to 1.
     #  Otherwise, the surface buffer should be at least as large
@@ -117,13 +132,12 @@ Section "Device"
     #   is a command buffer 7x the size of the frame buffer.
     #  If you see 'Out of memory' errors in your xorg.log, you probably need
     #   to increase the surface or command buffer sizes.
-    #--------------------------------------------------------------
 
-    # The amount of surface buffer ram, in megabytes, to allocate
+    # The amount of surface buffer ram, in megabytes, to allocate.
     # default: 128
     #Option "SurfaceBufferSize" "128"
 
-    # The amount of command buffer ram, in megabytes, to allocate
+    # The amount of command buffer ram, in megabytes, to allocate.
     # default: 128
     #Option "CommandBufferSize" "128"
 
@@ -134,51 +148,52 @@ Section "Device"
     # default: 16
     #Option "FrameBufferSize" "16"
 
-    # Whether or not to accept Vdagent connections
+
+    # ---- VDAgent options
+
+    # Whether or not to accept Vdagent connections.
     # default: False
     #Option "SpiceVdagentEnabled" "False"
 
-    # Default path to listen for agent virtual io connections
-    #  default: /tmp/xspice-virtio"
+    # Default path to listen for agent virtual io connections.
+    # default: /tmp/xspice-virtio"
     #Option "SpiceVdagentVirtioPath" "/tmp/xspice-virtio"
 
-    # Default path to listen for agent uinput connections
-    #  default: /tmp/xspice-uinput
+    # Default path to listen for agent uinput connections.
+    # default: /tmp/xspice-uinput
     #Option "SpiceVdagentUinputPath" "/tmp/xspice-uinput"
 
-    # Default user id to set for the Virtio and Uinput sockets
-    #  default: 0, or none
-    #  Note: both uid and gid must be given for either to take
-    #  effect
+    # Default user id to set for the Virtio and Uinput sockets.
+    # Note: both uid and gid must be given for either to take effect.
+    # default: 0, or none
     #Option "SpiceVdagentUid" "0"
 
-    # Default group id to set for the Virtio and Uinput sockets
-    #  default: 0, or none
-    #  Note: both uid and gid must be given for either to take
-    #  effect
+    # Default group id to set for the Virtio and Uinput sockets.
+    # Note: both uid and gid must be given for either to take effect.
+    # default: 0, or none
     #Option "SpiceVdagentGid" "0"
 
-    # Set Spice Agent Mouse - Use Agent mouse if an agent connects
+    # Set Spice Agent Mouse - Use Agent mouse if an agent connects.
     # default: True
     #Option "SpiceAgentMouse" "True"
 
-    # Set Spice Playback compression
+    # Set Spice Playback compression.
     # default: True
     #Option "SpicePlaybackCompression" "True"
 
-    # Disable copy and paste
+    # Disable copy and paste.
     # default: False
     #Option "SpiceDisableCopyPaste" "False"
 
-    # If a directory is given, any file in that
-    #  directory will be read for audio data to be sent
-    #  to the client.   Default is no mixing.
-    #Option "SpicePlaybackFIFODir"  "/tmp/"
+    # If a directory is given, any file in that directory will be read
+    # for audio data to be sent to the client.
+    # default: Not set.
+    #Option "SpicePlaybackFIFODir" "/tmp/"
 
-    # A unix domain name for a unix domain socket
-    #  to communicate with a spiceccid smartcard driver
-    #  Default is not to use a smartcard driver.
-    #Option "SpiceSmartCardFile"  "/tmp/spice.pcsc.comm"
+    # A unix domain name for a unix domain socket to communicate with
+    # a spiceccid smartcard driver.
+    # default: Not set.
+    #Option "SpiceSmartCardFile" "/tmp/spice.pcsc.comm"
 EndSection
 
 Section "InputDevice"
