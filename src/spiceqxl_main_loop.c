@@ -193,6 +193,7 @@ static void timer_remove(SpiceTimer *timer)
     free(timer);
 }
 
+#if GET_ABI_MAJOR(ABI_VIDEODRV_VERSION) < 23
 struct SpiceWatch {
     RingItem link;
     int fd;
@@ -236,11 +237,6 @@ static void watch_remove(SpiceWatch *watch)
     watch_count--;
 }
 
-static void channel_event(int event, SpiceChannelEventInfo *info)
-{
-    NOT_IMPLEMENTED
-}
-
 static int set_watch_fds(fd_set *rfds, fd_set *wfds)
 {
     SpiceWatch *watch;
@@ -276,7 +272,7 @@ static void xspice_block_handler(pointer data, OSTimePtr timeout, pointer readma
 /*
  * xserver only calls wakeup_handler with the read fd_set, so we
  * must either patch it or do a polling select ourselves, this is the
- * later approach. Since we are already doing a polling select, we
+ * latter approach. Since we are already doing a polling select, we
  * already select on all (we could avoid selecting on the read since
  * that *is* actually taken care of by the wakeup handler).
  */
@@ -338,9 +334,93 @@ static void xspice_wakeup_handler(pointer data, int nfds, pointer readmask)
     select_and_check_watches();
 }
 
+#else /* GET_ABI_MAJOR(ABI_VIDEODRV_VERSION) < 23 */
+
+struct SpiceWatch {
+    int fd;
+    int event_mask;
+    SpiceWatchFunc func;
+    void *opaque;
+};
+
+static void watch_fd_notified(int fd, int xevents, void *data)
+{
+    SpiceWatch *watch = (SpiceWatch *)data;
+
+    if ((watch->event_mask & SPICE_WATCH_EVENT_READ) && (xevents & X_NOTIFY_READ)) {
+        watch->func(watch->fd, SPICE_WATCH_EVENT_READ, watch->opaque);
+    }
+
+    if ((watch->event_mask & SPICE_WATCH_EVENT_WRITE) && (xevents & X_NOTIFY_WRITE)) {
+        watch->func(watch->fd, SPICE_WATCH_EVENT_WRITE, watch->opaque);
+    }
+}
+
+static int watch_update_mask_internal(SpiceWatch *watch, int event_mask)
+{
+    int x_event_mask = 0;
+
+    SetNotifyFd(watch->fd, NULL, X_NOTIFY_NONE, NULL);
+    watch->event_mask = 0;
+
+    if (event_mask & SPICE_WATCH_EVENT_READ) {
+        x_event_mask |= X_NOTIFY_READ;
+    }
+    if (event_mask & SPICE_WATCH_EVENT_WRITE) {
+        x_event_mask |= X_NOTIFY_WRITE;
+    }
+    if (x_event_mask == 0) {
+        DPRINTF(0, "Unexpected watch event_mask: %i", event_mask);
+        return -1;
+    }
+    SetNotifyFd(watch->fd, watch_fd_notified, x_event_mask, watch);
+    watch->event_mask = event_mask;
+
+    return 0;
+}
+
+static SpiceWatch *watch_add(int fd, int event_mask, SpiceWatchFunc func, void *opaque)
+{
+    SpiceWatch *watch = malloc(sizeof(SpiceWatch));
+
+    DPRINTF(0, "adding %p, fd=%d", watch, fd);
+
+    watch->fd = fd;
+    watch->func = func;
+    watch->opaque = opaque;
+    if (watch_update_mask_internal(watch, event_mask) != 0) {
+        free(watch);
+        return NULL;
+    }
+
+    return watch;
+}
+
+static void watch_update_mask(SpiceWatch *watch, int event_mask)
+{
+    DPRINTF(0, "fd %d to %d", watch->fd, event_mask);
+    watch_update_mask_internal(watch, event_mask);
+}
+
+static void watch_remove(SpiceWatch *watch)
+{
+    DPRINTF(0, "remove %p (fd %d)", watch, watch->fd);
+    RemoveNotifyFd(watch->fd);
+    free(watch);
+}
+#endif
+
+static void channel_event(int event, SpiceChannelEventInfo *info)
+{
+    NOT_IMPLEMENTED
+}
+
+
 SpiceCoreInterface *basic_event_loop_init(void)
 {
+#if GET_ABI_MAJOR(ABI_VIDEODRV_VERSION) < 23
     ring_init(&watches);
+#endif
     bzero(&core, sizeof(core));
     core.base.major_version = SPICE_INTERFACE_CORE_MAJOR;
     core.base.minor_version = SPICE_INTERFACE_CORE_MINOR; // anything less then 3 and channel_event isn't called
@@ -355,7 +435,10 @@ SpiceCoreInterface *basic_event_loop_init(void)
     return &core;
 }
 
+
 void xspice_register_handlers(void)
 {
+#if GET_ABI_MAJOR(ABI_VIDEODRV_VERSION) < 23
     RegisterBlockAndWakeupHandlers(xspice_block_handler, xspice_wakeup_handler, 0);
+#endif
 }
