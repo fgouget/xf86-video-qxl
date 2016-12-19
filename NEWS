@@ -8,7 +8,7 @@ Fix Xspice crashing after 11 days
 Add --numheads argument to Xspice script
 Allow to setup video codec for streaming when using Xspice (requires
 spice-server 0.13.2)
-X.Org 1.19 fixes (Xspice is still non-functional with it)
+Add support for X.Org 1.19
 Fix compilation on arches which do not have outb (aarch64)
 
 Major changes in 0.1.4
