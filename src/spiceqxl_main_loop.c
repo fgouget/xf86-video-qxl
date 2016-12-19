@@ -338,7 +338,6 @@ static void xspice_wakeup_handler(pointer data, int nfds, pointer readmask)
 
 struct SpiceWatch {
     int fd;
-    int event_mask;
     SpiceWatchFunc func;
     void *opaque;
 };
@@ -347,11 +346,11 @@ static void watch_fd_notified(int fd, int xevents, void *data)
 {
     SpiceWatch *watch = (SpiceWatch *)data;
 
-    if ((watch->event_mask & SPICE_WATCH_EVENT_READ) && (xevents & X_NOTIFY_READ)) {
+    if (xevents & X_NOTIFY_READ) {
         watch->func(watch->fd, SPICE_WATCH_EVENT_READ, watch->opaque);
     }
 
-    if ((watch->event_mask & SPICE_WATCH_EVENT_WRITE) && (xevents & X_NOTIFY_WRITE)) {
+    if (xevents & X_NOTIFY_WRITE) {
         watch->func(watch->fd, SPICE_WATCH_EVENT_WRITE, watch->opaque);
     }
 }
@@ -361,7 +360,6 @@ static int watch_update_mask_internal(SpiceWatch *watch, int event_mask)
     int x_event_mask = 0;
 
     SetNotifyFd(watch->fd, NULL, X_NOTIFY_NONE, NULL);
-    watch->event_mask = 0;
 
     if (event_mask & SPICE_WATCH_EVENT_READ) {
         x_event_mask |= X_NOTIFY_READ;
@@ -374,7 +372,6 @@ static int watch_update_mask_internal(SpiceWatch *watch, int event_mask)
         return -1;
     }
     SetNotifyFd(watch->fd, watch_fd_notified, x_event_mask, watch);
-    watch->event_mask = event_mask;
 
     return 0;
 }
