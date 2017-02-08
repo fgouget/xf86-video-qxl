@@ -211,7 +211,7 @@ signal.signal(signal.SIGTERM, cleanup)
 atexit.register(cleanup)
 
 if args.auto:
-    temp_dir  = tempfile.mkdtemp(prefix="Xspice-")
+    temp_dir = tempfile.mkdtemp(prefix="Xspice-")
     cleanup_dirs.append(temp_dir)
 
     args.config = temp_dir + "/xorg.conf"
@@ -275,7 +275,7 @@ if args.vdagent_enabled:
             os.unlink(f)
 
     if not temp_dir:
-        temp_dir  = tempfile.mkdtemp(prefix="Xspice-")
+        temp_dir = tempfile.mkdtemp(prefix="Xspice-")
         cleanup_dirs.append(temp_dir)
 
     # Auto generate temporary files for vdagent
