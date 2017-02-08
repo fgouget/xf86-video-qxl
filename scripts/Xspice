@@ -135,7 +135,7 @@ def agents_new_enough(args):
             return False
 
     for f in [args.vdagent_exec, args.vdagentd_exec]:
-        if Popen(args=[f, '-h'], stdout=PIPE).stdout.read().find('-S') == -1:
+        if Popen(args=[f, '-h'], stdout=PIPE, universal_newlines=True).stdout.read().find('-S') == -1:
             return False
     return True
 
