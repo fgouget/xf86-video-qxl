@@ -90,7 +90,7 @@ git clone git://anongit.freedesktop.org/xorg/driver/xf86-video-qxl xspice
 build and install into some non common prefix (not to overwrite
 your existing server) - note that this is just for testing. This
 should all work with the default server as well, but that server
-requires root generally and this is undesireable for testing (and
+requires root generally and this is undesirable for testing (and
 running actually).
 
 export PKG_CONFIG_PATH=${TEST}/lib/pkgconfig:${TEST}/share/pkgconfig

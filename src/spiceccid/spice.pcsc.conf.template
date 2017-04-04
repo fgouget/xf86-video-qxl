@@ -1,5 +1,5 @@
 # Spice CCID Reader
-#  This configuration file is the format required by the pcscd deamon for
+#  This configuration file is the format required by the pcscd daemon for
 #  serial devices; so the qxl driver looks like a serial device to pcscd.
 FRIENDLYNAME      "Spice ccid"
 DEVICENAME        /tmp/spice.pcsc.comm
