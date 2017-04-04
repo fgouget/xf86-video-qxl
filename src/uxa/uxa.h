@@ -494,7 +494,7 @@ typedef struct _UxaDriver {
 	 * get_image() must be implemented and must not fail if a driver
 	 * wishes to fail in prepare_access().  prepare_access() must not
 	 * fail when pPix is the visible screen, because the visible screen
-	 * can not be migrated.
+	 * cannot be migrated.
 	 *
 	 * @return TRUE if prepare_access() successfully prepared the pixmap
 	 * for CPU drawing.

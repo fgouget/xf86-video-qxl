@@ -521,7 +521,7 @@ static void qxl_bo_output_bo_reloc(qxl_screen_t *qxl, uint32_t dst_offset,
     uint8_t slot_id;
     uint64_t value;
 
-    /* take a refernce on the bo */
+    /* take a reference on the bo */
     src_bo->refcnt++;
 
     slot_id = src_bo->type == QXL_BO_SURF ? qxl->vram_mem_slot : qxl->main_mem_slot;

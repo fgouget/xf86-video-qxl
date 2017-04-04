@@ -31,7 +31,7 @@
 #include "qxl.h"
 #include "spiceqxl_io_port.h"
 
-/* TODO: taken from qemu qxl.c, try to remove dupplication */
+/* TODO: taken from qemu qxl.c, try to remove duplication */
 #undef SPICE_RING_PROD_ITEM
 #define SPICE_RING_PROD_ITEM(r, ret) {                                  \
         typeof(r) start = r;                                            \

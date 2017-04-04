@@ -163,7 +163,7 @@ static int interface_get_command(QXLInstance *sin, struct QXLCommandExt *ext)
         qxl_send_events(qxl, QXL_INTERRUPT_DISPLAY);
     }
     qxl->guest_primary.commands++;
-    // TODO: reenable, useful
+    // TODO: re-enable, useful
     //qxl_track_command(qxl, ext);
     //qxl_log_command(qxl, "cmd", ext);
     return TRUE;

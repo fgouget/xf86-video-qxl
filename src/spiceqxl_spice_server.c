@@ -113,7 +113,7 @@ static const char *wan_compression_names[] = {
 
 void xspice_set_spice_server_options(OptionInfoPtr options)
 {
-    /* environment variables take precedense. If not then take
+    /* environment variables take precedence. If not then take
      * parameters from the config file. */
     int addr_flags;
     int len;

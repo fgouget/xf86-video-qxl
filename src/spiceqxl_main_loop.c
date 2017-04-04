@@ -423,7 +423,7 @@ SpiceCoreInterface *basic_event_loop_init(void)
 #endif
     bzero(&core, sizeof(core));
     core.base.major_version = SPICE_INTERFACE_CORE_MAJOR;
-    core.base.minor_version = SPICE_INTERFACE_CORE_MINOR; // anything less then 3 and channel_event isn't called
+    core.base.minor_version = SPICE_INTERFACE_CORE_MINOR; // anything less than 3 and channel_event isn't called
     core.timer_add = timer_add;
     core.timer_start = timer_start;
     core.timer_cancel = timer_cancel;
