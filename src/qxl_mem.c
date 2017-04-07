@@ -404,7 +404,7 @@ qxl_handle_oom (qxl_screen_t *qxl)
     return qxl_garbage_collect (qxl);
 }
 
-void *
+static void *
 qxl_allocnf (qxl_screen_t *qxl, unsigned long size, const char *name)
 {
     void *result;

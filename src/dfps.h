@@ -23,5 +23,4 @@
  */
 
 void dfps_start_ticker(qxl_screen_t *qxl);
-void dfps_ticker(void *opaque);
 void dfps_set_uxa_functions(qxl_screen_t *qxl, ScreenPtr screen);

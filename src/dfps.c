@@ -53,6 +53,8 @@ typedef struct _dfps_info_t
     GCPtr       pgc;
 } dfps_info_t;
 
+static void dfps_ticker(void *opaque);
+
 static inline dfps_info_t *dfps_get_info (PixmapPtr pixmap)
 {
 #if HAS_DEVPRIVATEKEYREC
@@ -104,7 +106,7 @@ void dfps_start_ticker(qxl_screen_t *qxl)
     timer_start(qxl->frames_timer, 1000 / qxl->deferred_fps);
 }
 
-void dfps_ticker(void *opaque)
+static void dfps_ticker(void *opaque)
 {
     qxl_screen_t *qxl = (qxl_screen_t *) opaque;
     dfps_info_t *info = NULL;

@@ -582,9 +582,6 @@ struct qxl_mem *  qxl_mem_create       (void                   *base,
 void              qxl_mem_dump_stats   (struct qxl_mem         *mem,
 					const char             *header);
 void              qxl_mem_free_all     (struct qxl_mem         *mem);
-void *            qxl_allocnf          (qxl_screen_t           *qxl,
-					unsigned long           size,
-					const char *            name);
 int		   qxl_garbage_collect (qxl_screen_t *qxl);
 
 void qxl_reset_and_create_mem_slots (qxl_screen_t *qxl);
