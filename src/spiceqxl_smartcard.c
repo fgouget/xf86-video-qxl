@@ -44,7 +44,7 @@ typedef struct XSpiceSmartcardCharDeviceInstance {
     SpiceWatch *watch;
 } XSpiceSmartcardCharDeviceInstance;
 
-XSpiceSmartcardCharDeviceInstance smartcard_sin = {
+static XSpiceSmartcardCharDeviceInstance smartcard_sin = {
     .base = {
         .subtype = "smartcard"
     }

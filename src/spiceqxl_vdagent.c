@@ -24,7 +24,7 @@ typedef struct XSpiceVdagentCharDeviceInstance {
     qxl_screen_t *qxl;
 } XSpiceVdagentCharDeviceInstance;
 
-XSpiceVdagentCharDeviceInstance vdagent_sin = {
+static XSpiceVdagentCharDeviceInstance vdagent_sin = {
     .base = {
         .subtype = "vdagent"
     }

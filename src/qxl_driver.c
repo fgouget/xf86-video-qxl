@@ -73,7 +73,7 @@ static char spice_vdagent_virtio_path_default[] = "/tmp/xspice-virtio";
 static char spice_vdagent_uinput_path_default[] = "/tmp/xspice-uinput";
 #endif
 static char driver_name[] = QXL_DRIVER_NAME;
-const OptionInfoRec DefaultOptions[] =
+static const OptionInfoRec DefaultOptions[] =
 {
     { OPTION_ENABLE_IMAGE_CACHE,
       "EnableImageCache",         OPTV_BOOLEAN, { 1 }, FALSE },

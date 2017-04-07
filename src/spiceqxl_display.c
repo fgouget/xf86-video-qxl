@@ -72,7 +72,7 @@
  * We currently add it during attache_worker - should not be called more
  * then once during lifetime (but we don't check)
  */
-QXLDevMemSlot slot = {
+static QXLDevMemSlot slot = {
 .slot_group_id = MEMSLOT_GROUP,
 .slot_id = 0,
 .generation = 0,

@@ -690,7 +690,7 @@ static void qxl_bo_output_surf_reloc(qxl_screen_t *qxl, uint32_t dst_offset,
     *(uint32_t *)((char *)dst_bo->internal_virt_addr + dst_offset) = surf->id;
 }
 
-struct qxl_bo_funcs qxl_ums_bo_funcs = {
+static struct qxl_bo_funcs qxl_ums_bo_funcs = {
     qxl_bo_alloc,
     qxl_cmd_alloc,
     qxl_bo_map,

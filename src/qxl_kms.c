@@ -751,7 +751,7 @@ static void qxl_bo_output_surf_reloc(qxl_screen_t *qxl, uint32_t dst_offset,
     qxl->cmds.n_relocs++;
 }
 
-struct qxl_bo_funcs qxl_kms_bo_funcs = {
+static struct qxl_bo_funcs qxl_kms_bo_funcs = {
     qxl_bo_alloc,
     qxl_cmd_alloc,
     qxl_bo_map,
